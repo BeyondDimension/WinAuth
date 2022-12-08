@@ -365,3 +365,4 @@ Third Party/MetroFramework/MetroFramework/bin
 Third Party/MetroFramework/MetroFramework/obj
 
 .DS_Store
+/pkg
