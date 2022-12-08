@@ -1,0 +1,35 @@
+<Project>
+	<PropertyGroup>
+		<NoWarn>$(NoWarn);NU1507;1591;SA1612;IL2026;IL2091</NoWarn>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsTrimmable>true</IsTrimmable>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Title>WinAuth</Title>
+		<Description>WinAuth - The Windows Authenticator</Description>
+		<Product>WinAuth</Product>
+		<Copyright>©Copyright © 2016. Colin Mackie. All rights reserved.</Copyright>
+		<Version>3.6.21208.12039</Version>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<AllowedReferenceRelatedFileExtensions>
+			<!-- Prevent default XML and PDB files copied to output in RELEASE. 
+           		 Only *.allowedextension files will be included, which doesn't exist in my case.
+       		-->
+			.allowedextension
+		</AllowedReferenceRelatedFileExtensions>
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+	</PropertyGroup>
+	<ItemGroup>
+		<Compile Include="..\ImplicitUsings.BCL.cs">
+			<LinkBase>Properties</LinkBase>
+		</Compile>
+		<Compile Include="..\ImplicitUsings.Common.cs">
+			<LinkBase>Properties</LinkBase>
+		</Compile>
+	</ItemGroup>
+</Project>
