@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+		<PackageId>WinAuth.Library</PackageId>
+		<Title>WinAuth</Title>
+		<Description>WinAuth - The Windows Authenticator</Description>
+		<Product>WinAuth</Product>
+		<Copyright>© Copyright 2016. Colin Mackie. All rights reserved.</Copyright>
 		<RootNamespace></RootNamespace>
 		<DefineConstants>__HAVE_N_JSON__;$(DefineConstants)</DefineConstants>
 	</PropertyGroup>

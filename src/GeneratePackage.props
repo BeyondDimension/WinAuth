@@ -2,8 +2,10 @@
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
 		<PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/BeyondDimension/WinAuth</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/BeyondDimension/WinAuth.git</RepositoryUrl>
+		<PackageReleaseNotes>$(PackageProjectUrl)/releases</PackageReleaseNotes>
+		<RepositoryUrl>$(PackageProjectUrl).git</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
+		<RepositoryBranch>main</RepositoryBranch>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>

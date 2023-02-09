@@ -5,15 +5,15 @@ VisualStudioVersion = 17.4.33122.133
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Authenticator", "Authenticator\Authenticator.csproj", "{3A299D80-D745-481F-88B8-8F22FFBBB77F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinAuth", "src\WinAuth\WinAuth.csproj", "{AC76E0B8-28E7-4138-BAF3-BC1E18C89C82}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinAuth", "src\WinAuth\WinAuth.csproj", "{AC76E0B8-28E7-4138-BAF3-BC1E18C89C82}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{FD79FB1B-D7CB-4557-8876-768F0D008495}"
 	ProjectSection(SolutionItems) = preProject
 		src\.editorconfig = src\.editorconfig
+		.github\workflows\CI.yml = .github\workflows\CI.yml
 		src\Directory.Build.props = src\Directory.Build.props
-		src\Directory.Packages.props = src\Directory.Packages.props
+		ref\DirectoryPackages\Directory.Packages.props = ref\DirectoryPackages\Directory.Packages.props
 		src\GeneratePackage.props = src\GeneratePackage.props
-		NuGet.Config = NuGet.Config
 		README.md = README.md
 		src\TFM_NET7.props = src\TFM_NET7.props
 	EndProjectSection

@@ -7,22 +7,13 @@
 		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<IsTrimmable>true</IsTrimmable>
-		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<Title>WinAuth</Title>
-		<Description>WinAuth - The Windows Authenticator</Description>
-		<Product>WinAuth</Product>
-		<Copyright>©Copyright © 2016. Colin Mackie. All rights reserved.</Copyright>
-		<Version>3.6.21208.12039</Version>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)'=='Release'">
-		<AllowedReferenceRelatedFileExtensions>
-			<!-- Prevent default XML and PDB files copied to output in RELEASE. 
-           		 Only *.allowedextension files will be included, which doesn't exist in my case.
-       		-->
-			.allowedextension
-		</AllowedReferenceRelatedFileExtensions>
-		<DebugType>none</DebugType>
-		<DebugSymbols>false</DebugSymbols>
+		<Version>3.623.20209.21649</Version>
+		<PackageIconUrl>https://avatars.githubusercontent.com/u/79355691?s=200&amp;v=4</PackageIconUrl>
+		<Company>长沙次元超越科技有限公司</Company>
+		<Copyright>©️ $(Company). All rights reserved.</Copyright>
+		<Authors>长沙次元超越科技有限公司</Authors>
+		<FileVersion>$(Version)</FileVersion>
+		<AssemblyVersion>$(Version)</AssemblyVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Include="..\ImplicitUsings.BCL.cs">

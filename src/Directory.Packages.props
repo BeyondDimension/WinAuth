@@ -1,37 +1,3 @@
 <Project>
-	<PropertyGroup>
-		<Version_ReactiveUI>18.4.1</Version_ReactiveUI>
-		<Version_BDCommon>1.22.11208.10230</Version_BDCommon>
-	</PropertyGroup>
-	<!-- BD Common -->
-	<ItemGroup>
-		<PackageVersion Include="BD.Common" Version="$(Version_BDCommon)" />
-		<PackageVersion Include="BD.Common.Primitives" Version="$(Version_BDCommon)" />
-		<PackageVersion Include="BD.Common.Security" Version="$(Version_BDCommon)" />
-	</ItemGroup>
-	<!-- Code Style -->
-	<ItemGroup>
-		<PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.435" />
-	</ItemGroup>
-	<!-- Serialize NJson -->
-	<ItemGroup>
-		<PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
-	</ItemGroup>
-	<!-- BouncyCastle -->
-	<ItemGroup>
-		<PackageVersion Include="Portable.BouncyCastle" Version="1.9.0" />
-	</ItemGroup>
-	<!-- ReactiveUI -->
-	<ItemGroup>
-		<PackageVersion Include="ReactiveUI" Version="$(Version_ReactiveUI)" />
-		<PackageVersion Include="ReactiveUI.Fody" Version="$(Version_ReactiveUI)" />
-	</ItemGroup>
-	<!-- BCL 7.0 -->
-	<ItemGroup>
-		<PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="7.0.0" />
-	</ItemGroup>
-	<!-- SourceLink -->
-	<ItemGroup>
-		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
-	</ItemGroup>
+	<Import Project="..\ref\DirectoryPackages\Directory.Packages.props" />
 </Project>
