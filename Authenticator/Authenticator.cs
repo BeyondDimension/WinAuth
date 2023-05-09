@@ -289,7 +289,7 @@ namespace WinAuth
                 }
                 else
                 {
-                    Sync();
+                    SyncAsync();
                 }
             }
 
@@ -343,7 +343,7 @@ namespace WinAuth
         /// <summary>
         /// Synchorise this authenticator's time with server time. We update our data record with the difference from our UTC time.
         /// </summary>
-        public abstract void Sync();
+        public abstract void SyncAsync();
 
         #region Load / Save
 
@@ -722,7 +722,7 @@ namespace WinAuth
             }
             else if (ServerTimeDiff == 0 || LastServerTime == 0 || LastServerTime < DateTime.Now.AddHours(-24).Ticks)
             {
-                Sync();
+                SyncAsync();
                 return true;
             }
             else

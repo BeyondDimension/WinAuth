@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -244,7 +245,7 @@ namespace WinAuth
         /// <summary>
         /// Enroll the authenticator with the server.
         /// </summary>
-        public void Enroll()
+        public async void EnrollAsync()
         {
             // default to US
             string region = REGION_US;
@@ -252,40 +253,41 @@ namespace WinAuth
 
             // Battle.net does a GEO IP lookup anyway so there is no need to pass the region
             // however China has its own URL so we must still do our own GEO IP lookup to find the country
-            HttpWebRequest georequest = (HttpWebRequest)WebRequest.Create(GEOIPURL);
-            georequest.Method = "GET";
-            georequest.ContentType = "application/json";
-            georequest.Timeout = 10000;
-            // get response
-            string responseString = null;
+
+            var requestMessage = new HttpRequestMessage(HttpMethod.Get, GEOIPURL);
+            requestMessage.Content = new StringContent("", Encoding.UTF8, "application/json");
+            string responsestring = null;
+            using HttpClient httpClient = new HttpClient();
+            httpClient.Timeout = new TimeSpan(0, 0, 10);
             try
             {
-                using (HttpWebResponse georesponse = (HttpWebResponse)georequest.GetResponse())
+                using var responsemessage = await httpClient.SendAsync(requestMessage);
+                if (responsemessage.StatusCode == HttpStatusCode.OK)
                 {
-                    // OK?
-                    if (georesponse.StatusCode == HttpStatusCode.OK)
+                    using (MemoryStream ms = new MemoryStream())
                     {
-                        using (MemoryStream ms = new MemoryStream())
+                        using (Stream bs = await responsemessage.Content.ReadAsStreamAsync())
                         {
-                            using (Stream bs = georesponse.GetResponseStream())
+                            byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
+                            int read;
+                            while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
                             {
-                                byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
-                                int read;
-                                while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
-                                {
-                                    ms.Write(temp, 0, read);
-                                }
-                                responseString = Encoding.UTF8.GetString(ms.ToArray());
+                                ms.Write(temp, 0, read);
                             }
+
+                            responsestring = Encoding.UTF8.GetString(ms.ToArray());
                         }
                     }
                 }
             }
-            catch (Exception) { }
-            if (string.IsNullOrEmpty(responseString) == false)
+            catch (Exception)
+            {
+            }
+
+            if (string.IsNullOrEmpty(responsestring) == false)
             {
                 // not worth a full json parser, just regex it
-                Match match = Regex.Match(responseString, ".*\"country\":\"([^\"]*)\".*", RegexOptions.IgnoreCase);
+                Match match = Regex.Match(responsestring, ".*\"country\":\"([^\"]*)\".*", RegexOptions.IgnoreCase);
                 if (match.Success == true)
                 {
                     // match the correct region
@@ -309,6 +311,66 @@ namespace WinAuth
                     }
                 }
             }
+
+            #region 旧版WebRequest实现IP国家获取
+            //HttpWebRequest georequest = (HttpWebRequest)WebRequest.Create(GEOIPURL);
+            //georequest.Method = "GET";
+            //georequest.ContentType = "application/json";
+            //georequest.Timeout = 10000;
+            //// get response
+            //string responseString = null;
+            //try
+            //{
+            //    using (HttpWebResponse georesponse = (HttpWebResponse)georequest.GetResponse())
+            //    {
+            //        // OK?
+            //        if (georesponse.StatusCode == HttpStatusCode.OK)
+            //        {
+            //            using (MemoryStream ms = new MemoryStream())
+            //            {
+            //                using (Stream bs = georesponse.GetResponseStream())
+            //                {
+            //                    byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
+            //                    int read;
+            //                    while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
+            //                    {
+            //                        ms.Write(temp, 0, read);
+            //                    }
+            //                    responseString = Encoding.UTF8.GetString(ms.ToArray());
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+            //catch (Exception) { }
+            //if (string.IsNullOrEmpty(responseString) == false)
+            //{
+            //    // not worth a full json parser, just regex it
+            //    Match match = Regex.Match(responseString, ".*\"country\":\"([^\"]*)\".*", RegexOptions.IgnoreCase);
+            //    if (match.Success == true)
+            //    {
+            //        // match the correct region
+            //        country = match.Groups[1].Value.ToUpper();
+
+            //        if (EU_COUNTRIES.Contains(country) == true)
+            //        {
+            //            region = REGION_EU;
+            //        }
+            //        else if (KR_COUNTRIES.Contains(country) == true)
+            //        {
+            //            region = REGION_KR;
+            //        }
+            //        else if (country == REGION_CN)
+            //        {
+            //            region = REGION_CN;
+            //        }
+            //        else
+            //        {
+            //            region = REGION_US;
+            //        }
+            //    }
+            //}
+            #endregion
 
             // allow override of country for CN using US from app.config
             //System.Configuration.AppSettingsReader config = new System.Configuration.AppSettingsReader();
@@ -336,6 +398,7 @@ namespace WinAuth
             //  20 byte[2] country code, e.g. US, GB, FR, KR, etc
             //  22 byte[16] model string for this device;
             //	38 END
+
             byte[] data = new byte[38];
             byte[] oneTimePad = CreateOneTimePad(20);
             Array.Copy(oneTimePad, data, oneTimePad.Length);
@@ -355,27 +418,23 @@ namespace WinAuth
             byte[] responseData = null;
             try
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(GetMobileUrl(region) + ENROLL_PATH);
-                request.Method = "POST";
-                request.ContentType = "application/octet-stream";
-                request.ContentLength = encrypted.Length;
-                request.Timeout = 10000;
-                Stream requestStream = request.GetRequestStream();
-                requestStream.Write(encrypted, 0, encrypted.Length);
-                requestStream.Close();
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(region) + ENROLL_PATH);
+                requestMessage.Content = new StringContent(Encoding.UTF8.GetString(encrypted, 0, encrypted.Length), Encoding.UTF8, "application/octet-stream");
+                requestMessage.Content.Headers.ContentLength = encrypted.Length;
+
+                using (var response = await httpClient.SendAsync(requestMessage))
                 {
                     // OK?
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new InvalidEnrollResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                        throw new InvalidEnrollResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                     }
 
                     // load back the buffer - should only be a byte[45]
                     using (MemoryStream ms = new MemoryStream())
                     {
                         //using (BufferedStream bs = new BufferedStream(response.GetResponseStream()))
-                        using (Stream bs = response.GetResponseStream())
+                        using (Stream bs = await response.Content.ReadAsStreamAsync())
                         {
                             byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
                             int read;
@@ -437,7 +496,7 @@ namespace WinAuth
         {
             if (!testmode)
             {
-                Enroll();
+                EnrollAsync();
             }
             else
             {
@@ -451,7 +510,7 @@ namespace WinAuth
         /// <summary>
         /// Synchronise this authenticator's time with server time. We update our data record with the difference from our UTC time.
         /// </summary>
-        public override void Sync()
+        public async override void SyncAsync()
         {
             // check if data is protected
             if (SecretKey == null && EncryptedData != null)
@@ -468,25 +527,25 @@ namespace WinAuth
             try
             {
                 // create a connection to time sync server
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(GetMobileUrl(Region) + SYNC_PATH);
-                request.Method = "GET";
-                request.Timeout = 5000;
+                var requestMessage = new HttpRequestMessage(HttpMethod.Get, GetMobileUrl(Region) + SYNC_PATH);
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(5);
 
                 // get response
                 byte[] responseData = null;
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (var response = await httpClient.SendAsync(requestMessage))
                 {
                     // OK?
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                     }
 
                     // load back the buffer - should only be a byte[8]
                     using (MemoryStream ms = new MemoryStream())
                     {
                         // using (BufferedStream bs = new BufferedStream(response.GetResponseStream()))
-                        using (Stream bs = response.GetResponseStream())
+                        using (Stream bs = await response.Content.ReadAsStreamAsync())
                         {
                             byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
                             int read;
@@ -538,34 +597,32 @@ namespace WinAuth
         /// </summary>
         /// <param name="serial">serial code, e.g. US-1234-5678-1234</param>
         /// <param name="restoreCode">restore code given on enroll, 10 chars.</param>
-        public void Restore(string serial, string restoreCode)
+        public async void RestoreAsync(string serial, string restoreCode)
         {
             // get the serial data
             byte[] serialBytes = Encoding.UTF8.GetBytes(serial.ToUpper().Replace("-", string.Empty));
 
             // send the request to the server to get our challenge
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(GetMobileUrl(serial) + RESTORE_PATH);
-            request.Method = "POST";
-            request.ContentType = "application/octet-stream";
-            request.ContentLength = serialBytes.Length;
-            Stream requestStream = request.GetRequestStream();
-            requestStream.Write(serialBytes, 0, serialBytes.Length);
-            requestStream.Close();
+            var requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTORE_PATH);
+            requestMessage.Content = new StringContent(Encoding.UTF8.GetString(serialBytes, 0, serialBytes.Length), Encoding.UTF8, "application/octet-stream");
+            requestMessage.Content.Headers.ContentLength = serialBytes.Length;
+            using var httpClient = new HttpClient();
+
             byte[] challenge = null;
             try
             {
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (var response = await httpClient.SendAsync(requestMessage))
                 {
                     // OK?
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                        throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                     }
 
                     // load back the buffer - should only be a byte[32]
                     using (MemoryStream ms = new MemoryStream())
                     {
-                        using (Stream bs = response.GetResponseStream())
+                        using (Stream bs = await response.Content.ReadAsStreamAsync())
                         {
                             byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
                             int read;
@@ -634,28 +691,25 @@ namespace WinAuth
             Array.Copy(encrypted, 0, postbytes, serialBytes.Length, encrypted.Length);
 
             // send the challenge response back to the server
-            request = (HttpWebRequest)WebRequest.Create(GetMobileUrl(serial) + RESTOREVALIDATE_PATH);
-            request.Method = "POST";
-            request.ContentType = "application/octet-stream";
-            request.ContentLength = postbytes.Length;
-            requestStream = request.GetRequestStream();
-            requestStream.Write(postbytes, 0, postbytes.Length);
-            requestStream.Close();
+            requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTOREVALIDATE_PATH);
+            requestMessage.Content = new StringContent(Encoding.UTF8.GetString(postbytes, 0, postbytes.Length), Encoding.UTF8, "application/octet-stream");
+            requestMessage.Content.Headers.ContentLength = postbytes.Length;
+
             byte[] secretKey = null;
             try
             {
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (var response = await httpClient.SendAsync(requestMessage))
                 {
                     // OK?
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                        throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                     }
 
                     // load back the buffer - should only be a byte[32]
                     using (MemoryStream ms = new MemoryStream())
                     {
-                        using (Stream bs = response.GetResponseStream())
+                        using (Stream bs = await response.Content.ReadAsStreamAsync())
                         {
                             byte[] temp = new byte[RESPONSE_BUFFER_SIZE];
                             int read;
@@ -711,7 +765,7 @@ namespace WinAuth
             RestoreCodeVerified = true;
             // sync the time
             ServerTimeDiff = 0L;
-            Sync();
+            SyncAsync();
         }
 
         /// <summary>

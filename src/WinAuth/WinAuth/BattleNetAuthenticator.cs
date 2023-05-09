@@ -18,6 +18,7 @@
 
 #pragma warning disable CA2211 // Non-constant fields should not be visible
 
+using System.Text;
 using System.Xml;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
@@ -227,7 +228,7 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Enroll the authenticator with the server.
     /// </summary>
-    public void Enroll()
+    public async void EnrollAsync()
     {
         // default to US
         var region = REGION_US;
@@ -236,20 +237,20 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
         // Battle.net does a GEO IP lookup anyway so there is no need to pass the region
         // however China has its own URL so we must still do our own GEO IP lookup to find the country
 
-        var georequest = CreateHttpWebRequest(GEOIPURL);
-        georequest.Method = "GET";
-        georequest.ContentType = "application/json";
-        georequest.Timeout = 10000;
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, GEOIPURL);
+        requestMessage.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
+        using var httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(10);
         // get response
         string? responseString = null;
         try
         {
-            using var georesponse = (HttpWebResponse)georequest.GetResponse();
+            using var georesponse = await httpClient.SendAsync(requestMessage);
             // OK?
             if (georesponse.StatusCode == HttpStatusCode.OK)
             {
                 using var ms = new MemoryStream();
-                using var bs = georesponse.GetResponseStream();
+                using var bs = await georesponse.Content.ReadAsStreamAsync();
                 var temp = new byte[RESPONSE_BUFFER_SIZE];
                 int read;
                 while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
@@ -335,25 +336,22 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
         byte[]? responseData = null;
         try
         {
-            var request = CreateHttpWebRequest(GetMobileUrl(region) + ENROLL_PATH);
-            request.Method = "POST";
-            request.ContentType = "application/octet-stream";
-            request.ContentLength = encrypted.Length;
-            request.Timeout = 10000;
-            var requestStream = request.GetRequestStream();
-            requestStream.Write(encrypted, 0, encrypted.Length);
-            requestStream.Close();
-            using var response = (HttpWebResponse)request.GetResponse();
+            requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(region) + ENROLL_PATH);
+            requestMessage.Content = new StringContent(Encoding.UTF8.GetString(encrypted, 0, encrypted.Length), Encoding.UTF8, "application/octet-stream");
+            requestMessage.Content.Headers.ContentLength = encrypted.Length;
+
+            var response = await httpClient.SendAsync(requestMessage);
+
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                throw new WinAuthInvalidEnrollResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                throw new WinAuthInvalidEnrollResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
             }
 
             // load back the buffer - should only be a byte[45]
             using var ms = new MemoryStream();
             //using (BufferedStream bs = new BufferedStream(response.GetResponseStream()))
-            using var bs = response.GetResponseStream();
+            using var bs = await response.Content.ReadAsStreamAsync();
             var temp = new byte[RESPONSE_BUFFER_SIZE];
             int read;
             while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
@@ -411,7 +409,7 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
     {
         if (!testmode)
         {
-            Enroll();
+            EnrollAsync();
         }
         else
         {
@@ -425,7 +423,7 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Synchronise this authenticator's time with server time. We update our data record with the difference from our UTC time.
     /// </summary>
-    public override void Sync()
+    public override async void SyncAsync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -442,24 +440,24 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
         try
         {
             // create a connection to time sync server
-            var request = CreateHttpWebRequest(GetMobileUrl(Region) + SYNC_PATH);
-            request.Method = "GET";
-            request.Timeout = 5000;
+            var requestMessage = new HttpRequestMessage(HttpMethod.Get, GetMobileUrl(Region) + SYNC_PATH);
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(5);
 
             // get response
             byte[]? responseData = null;
-            using (var response = (HttpWebResponse)request.GetResponse())
+            using (var response = await httpClient.SendAsync(requestMessage))
             {
                 // OK?
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                    throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                 }
 
                 // load back the buffer - should only be a byte[8]
                 using var ms = new MemoryStream();
                 // using (BufferedStream bs = new BufferedStream(response.GetResponseStream()))
-                using var bs = response.GetResponseStream();
+                using var bs = await response.Content.ReadAsStreamAsync();
                 var temp = new byte[RESPONSE_BUFFER_SIZE];
                 int read;
                 while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
@@ -508,32 +506,30 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
     /// </summary>
     /// <param name="serial">serial code, e.g. US-1234-5678-1234</param>
     /// <param name="restoreCode">restore code given on enroll, 10 chars.</param>
-    public void Restore(string serial, string restoreCode)
+    public async void RestoreAsync(string serial, string restoreCode)
     {
         // get the serial data
         var serialBytes = Encoding.UTF8.GetBytes(serial.ToUpper().Replace("-", string.Empty));
 
         // send the request to the server to get our challenge
-        var request = CreateHttpWebRequest(GetMobileUrl(serial) + RESTORE_PATH);
-        request.Method = "POST";
-        request.ContentType = "application/octet-stream";
-        request.ContentLength = serialBytes.Length;
-        var requestStream = request.GetRequestStream();
-        requestStream.Write(serialBytes, 0, serialBytes.Length);
-        requestStream.Close();
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTORE_PATH);
+        requestMessage.Content = new StringContent(Encoding.UTF8.GetString(serialBytes, 0, serialBytes.Length), Encoding.UTF8, "application/octet-stream");
+        requestMessage.Content.Headers.ContentLength = serialBytes.Length;
+        using var httpClient = new HttpClient();
+
         byte[]? challenge = null;
         try
         {
-            using var response = (HttpWebResponse)request.GetResponse();
+            using var response = await httpClient.SendAsync(requestMessage);
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                throw new WinAuthInvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                throw new WinAuthInvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
             }
 
             // load back the buffer - should only be a byte[32]
             using var ms = new MemoryStream();
-            using var bs = response.GetResponseStream();
+            using var bs = await response.Content.ReadAsStreamAsync();
             var temp = new byte[RESPONSE_BUFFER_SIZE];
             int read;
             while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
@@ -598,26 +594,23 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
         Array.Copy(encrypted, 0, postbytes, serialBytes.Length, encrypted.Length);
 
         // send the challenge response back to the server
-        request = CreateHttpWebRequest(GetMobileUrl(serial) + RESTOREVALIDATE_PATH);
-        request.Method = "POST";
-        request.ContentType = "application/octet-stream";
-        request.ContentLength = postbytes.Length;
-        requestStream = request.GetRequestStream();
-        requestStream.Write(postbytes, 0, postbytes.Length);
-        requestStream.Close();
+        requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTOREVALIDATE_PATH);
+        requestMessage.Content = new StringContent(Encoding.UTF8.GetString(postbytes, 0, postbytes.Length), Encoding.UTF8, "application/octet-stream");
+        requestMessage.Content.Headers.ContentLength = postbytes.Length;
+
         byte[]? secretKey = null;
         try
         {
-            using var response = (HttpWebResponse)request.GetResponse();
+            using var response = await httpClient.SendAsync(requestMessage);
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                throw new WinAuthInvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                throw new WinAuthInvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
             }
 
             // load back the buffer - should only be a byte[32]
             using var ms = new MemoryStream();
-            using var bs = response.GetResponseStream();
+            using var bs = await response.Content.ReadAsStreamAsync();
             var temp = new byte[RESPONSE_BUFFER_SIZE];
             int read;
             while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
@@ -669,7 +662,7 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
         RestoreCodeVerified = true;
         // sync the time
         ServerTimeDiff = 0L;
-        Sync();
+        SyncAsync();
     }
 
     /// <summary>

@@ -41,7 +41,6 @@
 		<PackageReference Include="BD.Common.Security" />
 		<PackageReference Include="Portable.BouncyCastle" />
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
-		<PackageReference Include="Newtonsoft.Json" />
 		<PackageReference Include="ReactiveUI" />
 		<PackageReference Include="ReactiveUI.Fody" />
 	</ItemGroup>

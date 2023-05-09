@@ -18,8 +18,8 @@
 
 using System.Web;
 using System.Collections.Specialized;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using ReactiveUI;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
 using static WinAuth.SteamAuthenticator;
@@ -34,12 +34,19 @@ public partial class SteamClient : IDisposable
 {
     internal static class Utils
     {
-        public static T SelectTokenValueNotNull<T>(string response, JToken token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
+        public static string SelectTokenValueNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
         {
-            var valueToken = token.SelectToken(path);
+            var valueToken = token;
+            //临时修复NJ转SJ的访问子节点格式问题
+            var nodes = path.Split('.');
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                valueToken = valueToken[nodes[i]];
+            }
+
             if (valueToken != null)
             {
-                var value = valueToken.Value<T>();
+                var value = valueToken.GetValue<string>();
                 if (value != null)
                 {
                     return value;
@@ -49,9 +56,9 @@ public partial class SteamClient : IDisposable
             throw getWinAuthException(response, msg ?? "SelectTokenValueNotNull", new ArgumentNullException(path));
         }
 
-        public static JToken SelectTokenNotNull(string response, JToken token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
+        public static JsonNode SelectTokenNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
         {
-            var valueToken = token.SelectToken(path);
+            var valueToken = token[path];
             if (valueToken != null)
             {
                 return valueToken;
@@ -199,7 +206,7 @@ public partial class SteamClient : IDisposable
             {
                 return null;
             }
-            var poller = FromJSON(JObject.Parse(json));
+            var poller = FromJSON(JsonNode.Parse(json));
             return poller?.Duration != 0 ? poller : null;
         }
 
@@ -208,7 +215,7 @@ public partial class SteamClient : IDisposable
         /// </summary>
         /// <param name="tokens">existing JKToken</param>
         /// <returns></returns>
-        public static ConfirmationPoller? FromJSON(JToken? tokens)
+        public static ConfirmationPoller? FromJSON(JsonNode? tokens)
         {
             if (tokens == null)
             {
@@ -217,20 +224,20 @@ public partial class SteamClient : IDisposable
 
             var poller = new ConfirmationPoller();
 
-            var token = tokens.SelectToken("duration");
+            var token = tokens["duration"];
             if (token != null)
             {
-                poller.Duration = token.Value<int>();
+                poller.Duration = token.GetValue<int>();
             }
-            token = tokens.SelectToken("action");
+            token = tokens["action"];
             if (token != null)
             {
-                poller.Action = (PollerAction)token.Value<int>();
+                poller.Action = (PollerAction)token.GetValue<int>();
             }
-            token = tokens.SelectToken("ids");
+            token = tokens["ids"];
             if (token != null)
             {
-                poller.Ids = token.ToObject<List<string>>();
+                poller.Ids = JsonSerializer.Deserialize<List<string>>(token);
             }
 
             return poller.Duration != 0 ? poller : null;
@@ -387,18 +394,18 @@ public partial class SteamClient : IDisposable
         /// <param name="json"></param>
         void FromJson(string json)
         {
-            var tokens = JObject.Parse(json);
-            var token = tokens.SelectToken("steamid");
+            var tokens = JsonNode.Parse(json);
+            var token = tokens["steamid"];
             if (token != null)
-                SteamId = token.Value<string>();
-            token = tokens.SelectToken("cookies");
+                SteamId = token.ToString();
+            token = tokens["cookies"];
             if (token != null)
             {
                 Cookies = new CookieContainer();
 
                 // Net3.5 has a bug that prepends "." to domain, e.g. ".steamcommunity.com"
                 var uri = new Uri(COMMUNITY_BASE + "/");
-                var tokenValue = token.Value<string>();
+                var tokenValue = token.ToString();
                 tokenValue.ThrowIsNull();
                 var match = SteamSessionCookiesRegex().Match(tokenValue);
                 while (match.Success == true)
@@ -407,15 +414,15 @@ public partial class SteamClient : IDisposable
                     match = match.NextMatch();
                 }
             }
-            token = tokens.SelectToken("oauthtoken");
+            token = tokens["oauthtoken"];
             if (token != null)
-                OAuthToken = token.Value<string>();
+                OAuthToken = token.ToString();
             //token = tokens.SelectToken("umqid");
             //if (token != null)
             //{
             //	this.UmqId = token.Value<string>();
             //}
-            token = tokens.SelectToken("confs");
+            token = tokens["confs"];
             if (token != null)
                 Confirmations = ConfirmationPoller.FromJSON(token);
         }
@@ -599,8 +606,8 @@ public partial class SteamClient : IDisposable
             // get the user's RSA key
             data.Add("username", username);
             response = GetString(COMMUNITY_BASE + "/mobilelogin/getrsakey", "POST", data);
-            var rsaresponse = JObject.Parse(response);
-            if (rsaresponse.SelectToken("success")?.Value<bool>() != true)
+            var rsaresponse = JsonNode.Parse(response);
+            if (rsaresponse["success"]?.GetValue<bool>() != true)
             {
                 InvalidLogin = true;
                 Error = "Unknown username";
@@ -614,8 +621,8 @@ public partial class SteamClient : IDisposable
             {
                 var passwordBytes = Encoding.ASCII.GetBytes(password);
                 var p = rsa.ExportParameters(false);
-                p.Exponent = StringToByteArray(SelectTokenValueNotNull<string>(response, rsaresponse, "publickey_exp"));
-                p.Modulus = StringToByteArray(SelectTokenValueNotNull<string>(response, rsaresponse, "publickey_mod"));
+                p.Exponent = StringToByteArray(SelectTokenValueNotNull(response, rsaresponse, "publickey_exp"));
+                p.Modulus = StringToByteArray(SelectTokenValueNotNull(response, rsaresponse, "publickey_mod"));
                 rsa.ImportParameters(p);
                 byte[] encryptedPassword = rsa.Encrypt(passwordBytes, RSAEncryptionPadding.Pkcs1);
                 encryptedPassword64 = Convert.ToBase64String(encryptedPassword);
@@ -632,7 +639,7 @@ public partial class SteamClient : IDisposable
                 { "captchagid", string.IsNullOrEmpty(captchaId) == false ? captchaId : "-1" },
                 { "captcha_text", string.IsNullOrEmpty(captchaText) == false ? captchaText : "enter above characters" },
                 //data.Add("emailsteamid", (string.IsNullOrEmpty(emailcode) == false ? this.SteamId ?? string.Empty : string.Empty));
-                { "rsatimestamp", SelectTokenValueNotNull<string>(response, rsaresponse, "timestamp") },
+                { "rsatimestamp", SelectTokenValueNotNull(response, rsaresponse, "timestamp") },
                 { "remember_login", "false" },
                 { "oauth_client_id", "DE45CD61" },
                 { "oauth_scope", "read_profile write_profile read_client write_client" },
@@ -640,7 +647,7 @@ public partial class SteamClient : IDisposable
             };
             const string url_mobilelogin_dologin = "/mobilelogin/dologin";
             response = GetString(COMMUNITY_BASE + url_mobilelogin_dologin, "POST", data);
-            var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+            var loginresponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
             if (loginresponse == null)
             {
                 throw GetWinAuthException(response, url_mobilelogin_dologin, new ArgumentNullException(nameof(loginresponse)));
@@ -701,12 +708,12 @@ public partial class SteamClient : IDisposable
 
             // get the OAuth token
             string oauth = (string)loginresponse["oauth"];
-            var oauthjson = JObject.Parse(oauth);
-            Session.OAuthToken = SelectTokenValueNotNull<string>(oauth, oauthjson, "oauth_token");
-            var steamid = oauthjson.SelectToken("steamid");
+            var oauthjson = JsonNode.Parse(oauth);
+            Session.OAuthToken = SelectTokenValueNotNull(oauth, oauthjson, "oauth_token");
+            var steamid = oauthjson["steamid"];
             if (steamid != null)
             {
-                Session.SteamId = steamid.Value<string>();
+                Session.SteamId = steamid.ToString();
             }
 
             //// perform UMQ login
@@ -770,22 +777,22 @@ public partial class SteamClient : IDisposable
                 return false;
             }
 
-            var json = JObject.Parse(response);
-            var token = json.SelectToken("response.token");
+            var json = JsonNode.Parse(response);
+            var token = json["response"]["token"];
             if (token == null)
             {
                 return false;
             }
 
             var cookieuri = new Uri(COMMUNITY_BASE + "/");
-            Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + token.Value<string>()));
+            Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + token.ToString()));
 
-            token = json.SelectToken("response.token_secure");
+            token = json["response"]["token_secure"];
             if (token == null)
             {
                 return false;
             }
-            Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + token.Value<string>()));
+            Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + token.ToString()));
 
             // perform UMQ login
             //response = GetString(API_LOGON, "POST", data);
@@ -1019,8 +1026,8 @@ public partial class SteamClient : IDisposable
     {
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
-        var jids = JObject.Parse(Authenticator.SteamData.ThrowIsNull(nameof(Authenticator.SteamData))).SelectToken("identity_secret");
-        var ids = jids?.Value<string>() ?? string.Empty;
+        var jids = JsonNode.Parse(Authenticator.SteamData.ThrowIsNull(nameof(Authenticator.SteamData)))["identity_secret"];
+        var ids = jids?.ToString() ?? string.Empty;
 
         var timehash = CreateTimeHash(servertime, "conf", ids);
 
@@ -1130,9 +1137,9 @@ public partial class SteamClient : IDisposable
         {
             throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
         }
-        if (JObject.Parse(response).SelectToken("success")?.Value<bool>() == true)
+        if (JsonNode.Parse(response)["success"]?.GetValue<bool>() == true)
         {
-            var html = JObject.Parse(response).SelectToken("html")?.Value<string>();
+            var html = JsonNode.Parse(response)["html"]?.ToString();
 
             ConfirmationsHtml.ThrowIsNull();
             Regex detailsRegex = ConfirmationDetailsRegex();
@@ -1163,8 +1170,8 @@ public partial class SteamClient : IDisposable
 
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
-        var jids = JObject.Parse(Authenticator.SteamData.ThrowIsNull(nameof(Authenticator.SteamData))).SelectToken("identity_secret");
-        var ids = jids?.Value<string>() ?? string.Empty;
+        var jids = JsonNode.Parse(Authenticator.SteamData.ThrowIsNull(nameof(Authenticator.SteamData)))["identity_secret"];
+        var ids = jids?.ToString() ?? string.Empty;
 
         var timehash = CreateTimeHash(servertime, "conf", ids);
 
@@ -1190,8 +1197,8 @@ public partial class SteamClient : IDisposable
                 return false;
             }
 
-            var success = JObject.Parse(response).SelectToken("success");
-            if (success == null || success.Value<bool>() == false)
+            var success = JsonNode.Parse(response)["success"];
+            if (success == null || success.GetValue<bool>() == false)
             {
                 Error = "Failed";
                 return false;
@@ -1338,67 +1345,76 @@ public partial class SteamClient : IDisposable
             //var isForward = enableForward && TryGetForwardUrl(ref url);
 
             // call the server
-            HttpWebRequest request = CreateHttpWebRequest(url);
-            request.Timeout = GeneralHttpClientFactory.DefaultTimeoutMilliseconds;
-            request.Method = method;
-            request.Accept = "text/javascript, text/html, application/xml, text/xml, */*";
-            request.ServicePoint.Expect100Continue = false;
-            request.UserAgent = USERAGENT;
-            request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-            request.Referer = COMMUNITY_BASE;
+            HttpClientHandler handler = new HttpClientHandler();
+            handler.AllowAutoRedirect = true;
+            //抓包分析需注释
+            handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+            handler.MaxAutomaticRedirections = 1000;
+            if (Session.Cookies != null)
+            {
+                handler.UseCookies = true;
+                handler.CookieContainer = Session.Cookies;
+            }
+            using HttpClient httpClient = new HttpClient(handler);
+            httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+            httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+            httpClient.Timeout = new TimeSpan(0, 0, 45);
+            httpClient.DefaultRequestHeaders.ExpectContinue = false;
             if (headers != null)
             {
-                request.Headers.Add(headers);
+                for (int i = 0; i < headers.Count; i++)
+                {
+                    httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i], headers.Get(i));
+                }
             }
 
             //if (isForward) AppendForwardHeaders(request.Headers);
 
-            request.CookieContainer = Session.Cookies;
-
-            if (string.Compare(method, "POST", true) == 0)
-            {
-                request.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
-                request.ContentLength = query.Length;
-
-                StreamWriter requestStream = new(request.GetRequestStream());
-                requestStream.Write(query);
-                requestStream.Close();
-            }
-
             try
             {
-                using HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+                HttpResponseMessage responseMessage;
+                if (string.Compare(method, "POST", true) == 0)
+                {
+                    HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
+                    content.Headers.ContentLength = query.Length;
+                    responseMessage = httpClient.PostAsync(url, content).Result;
+                }
+                else
+                {
+                    responseMessage = httpClient.GetAsync(url).Result;
+                }
 
-                LogRequest(method, url, request.CookieContainer, data, response.StatusCode.ToString() + " " + response.StatusDescription);
+                LogRequest(method, url, Session.Cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
 
                 // OK?
-                if (response.StatusCode == HttpStatusCode.Forbidden)
+                if (responseMessage.StatusCode == HttpStatusCode.Forbidden)
                 {
-                    throw new WinAuthUnauthorisedSteamRequestException(new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription)));
+                    throw new WinAuthUnauthorisedSteamRequestException(new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage)));
                 }
-                if (response.StatusCode != HttpStatusCode.OK)
+                if (responseMessage.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                    throw new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
                 }
 
                 // load the response
                 using MemoryStream ms = new();
                 byte[] buffer = new byte[4096];
                 int read;
-                while ((read = response.GetResponseStream().Read(buffer, 0, 4096)) > 0)
+                while ((read = responseMessage.Content.ReadAsStream().Read(buffer, 0, 4096)) > 0)
                 {
                     ms.Write(buffer, 0, read);
                 }
 
                 byte[] responsedata = ms.ToArray();
 
-                LogRequest(method, url, request.CookieContainer, data, responsedata != null && responsedata.Length != 0 ? Encoding.UTF8.GetString(responsedata) : string.Empty);
+                LogRequest(method, url, Session.Cookies, data, responsedata != null && responsedata.Length != 0 ? Encoding.UTF8.GetString(responsedata) : string.Empty);
 
                 return responsedata;
             }
             catch (Exception ex)
             {
-                LogException(method, url, request.CookieContainer, data, ex);
+                LogException(method, url, Session.Cookies, data, ex);
 
                 if (ex is WebException exception &&
                     exception.Response is HttpWebResponse response)

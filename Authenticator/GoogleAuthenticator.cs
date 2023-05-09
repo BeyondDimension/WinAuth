@@ -17,7 +17,10 @@
  */
 
 using System;
+using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Text;
 
 #if NUNIT
 using NUnit.Framework;
@@ -79,13 +82,13 @@ namespace WinAuth
         public void Enroll(string b32key)
         {
             SecretKey = Base32.getInstance().Decode(b32key);
-            Sync();
+            SyncAsync();
         }
 
         /// <summary>
         /// Synchronise this authenticator's time with Google. We update our data record with the difference from our UTC time.
         /// </summary>
-        public override void Sync()
+        public override async void SyncAsync()
         {
             // check if data is protected
             if (SecretKey == null && EncryptedData != null)
@@ -102,20 +105,20 @@ namespace WinAuth
             try
             {
                 // we use the Header response field from a request to www.google.come
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(TIME_SYNC_URL);
-                request.Method = "GET";
-                request.ContentType = "text/html";
-                request.Timeout = 5000;
-                // get response
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                var requestMessage = new HttpRequestMessage(HttpMethod.Get, TIME_SYNC_URL);
+                requestMessage.Content = new StringContent(string.Empty, Encoding.UTF8, "text/html");
+                using(HttpClient client = new HttpClient())
                 {
+                    client.Timeout = new TimeSpan(0, 0, 5);
+                    using var response = await client.SendAsync(requestMessage);
+
                     // OK?
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                     }
 
-                    string headerdate = response.Headers["Date"];
+                    string headerdate = response.Headers.GetValues("Date").First();
                     if (string.IsNullOrEmpty(headerdate) == false)
                     {
                         DateTime dt;
@@ -136,6 +139,43 @@ namespace WinAuth
                     // clear any sync error
                     _lastSyncError = DateTime.MinValue;
                 }
+
+                #region 旧版WebRequest实现方式
+                //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(TIME_SYNC_URL);
+                //request.Method = "GET";
+                //request.ContentType = "text/html";
+                //request.Timeout = 5000;
+                //// get response
+                //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                //{
+                //    // OK?
+                //    if (response.StatusCode != HttpStatusCode.OK)
+                //    {
+                //        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                //    }
+
+                //    string headerdate = response.Headers["Date"];
+                //    if (string.IsNullOrEmpty(headerdate) == false)
+                //    {
+                //        DateTime dt;
+                //        if (DateTime.TryParse(headerdate, out dt) == true)
+                //        {
+                //            // get as ms since epoch
+                //            long dtms = Convert.ToInt64((dt.ToUniversalTime() - new DateTime(1970, 1, 1)).TotalMilliseconds);
+
+                //            // get the difference between the server time and our current time
+                //            long serverTimeDiff = dtms - CurrentTime;
+
+                //            // update the Data object
+                //            ServerTimeDiff = serverTimeDiff;
+                //            LastServerTime = DateTime.Now.Ticks;
+                //        }
+                //    }
+
+                //    // clear any sync error
+                //    _lastSyncError = DateTime.MinValue;
+                //}
+                #endregion
             }
             catch (WebException)
             {

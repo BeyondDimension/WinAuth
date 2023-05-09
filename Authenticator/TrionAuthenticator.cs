@@ -22,6 +22,7 @@ using Org.BouncyCastle.Crypto.Parameters;
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -146,7 +147,7 @@ namespace WinAuth
         /// <summary>
         /// Enroll the authenticator with the server.
         /// </summary>
-        public void Enroll()
+        public async void EnrollAsync()
         {
             // generate model name
             string deviceId = GeneralRandomModel();
@@ -154,24 +155,23 @@ namespace WinAuth
             string postdata = "deviceId=" + deviceId;
 
             // call the enroll server
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(ENROLL_URL);
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
-            request.ContentLength = postdata.Length;
-            StreamWriter requestStream = new StreamWriter(request.GetRequestStream());
-            requestStream.Write(postdata);
-            requestStream.Close();
+            var requestMessage = new HttpRequestMessage(HttpMethod.Post, ENROLL_URL);
+            requestMessage.Content = new StringContent(postdata, Encoding.UTF8, "application/x-www-form-urlencoded");
+            requestMessage.Content.Headers.ContentLength = postdata.Length;
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(45);
+
             string responseData;
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (var response = await httpClient.SendAsync(requestMessage))
             {
                 // OK?
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new InvalidEnrollResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                    throw new InvalidEnrollResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                 }
 
                 // load the response
-                using (StreamReader responseStream = new StreamReader(response.GetResponseStream()))
+                using (StreamReader responseStream = new StreamReader(await response.Content.ReadAsStreamAsync()))
                 {
                     responseData = responseStream.ReadToEnd();
                 }
@@ -213,7 +213,7 @@ namespace WinAuth
         {
             if (!testmode)
             {
-                Enroll();
+                EnrollAsync();
             }
             else
             {
@@ -249,7 +249,7 @@ namespace WinAuth
         /// <summary>
         /// Synchorise this authenticator's time with server time. We update our data record with the difference from our UTC time.
         /// </summary>
-        public override void Sync()
+        public override async void SyncAsync()
         {
             // check if data is protected
             if (SecretKey == null && EncryptedData != null)
@@ -266,21 +266,22 @@ namespace WinAuth
             try
             {
                 // create a connection to time sync server
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(SYNC_URL);
-                request.Method = "GET";
+                var requestMessage = new HttpRequestMessage(HttpMethod.Get, SYNC_URL);
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(45);
 
                 // get response
                 string responseData;
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (var response = await httpClient.SendAsync(requestMessage))
                 {
                     // OK?
                     if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                        throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                     }
 
                     // load the response
-                    using (StreamReader responseStream = new StreamReader(response.GetResponseStream()))
+                    using (StreamReader responseStream = new StreamReader(await response.Content.ReadAsStreamAsync()))
                     {
                         responseData = responseStream.ReadToEnd();
                     }
@@ -323,7 +324,7 @@ namespace WinAuth
                 }
                 else
                 {
-                    Sync();
+                    SyncAsync();
                 }
             }
 
@@ -376,24 +377,23 @@ namespace WinAuth
             string postdata = "emailAddress=" + email + "&password=" + password;
 
             // call the enroll server
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(SECURITYQUESTIONS_URL);
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
-            request.ContentLength = postdata.Length;
-            StreamWriter requestStream = new StreamWriter(request.GetRequestStream());
-            requestStream.Write(postdata);
-            requestStream.Close();
+            var requestMessage = new HttpRequestMessage(HttpMethod.Post, SECURITYQUESTIONS_URL);
+            requestMessage.Content = new StringContent(postdata, Encoding.UTF8, "application/x-www-form-urlencoded");
+            requestMessage.Content.Headers.ContentLength = postdata.Length;
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(45);
+
             string responseData;
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (var response = httpClient.Send(requestMessage))
             {
                 // OK?
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                    throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                 }
 
                 // load the response
-                using (StreamReader responseStream = new StreamReader(response.GetResponseStream()))
+                using (StreamReader responseStream = new StreamReader(response.Content.ReadAsStream()))
                 {
                     responseData = responseStream.ReadToEnd();
                 }
@@ -428,7 +428,7 @@ namespace WinAuth
         /// <param name="deviceId">register authenticator deviceid</param>
         /// <param name="answer1">answer to secret question 1</param>
         /// <param name="answer2">answer to secret question 2</param>
-        public void Restore(string email, string password, string deviceId, string answer1, string answer2)
+        public async void RestoreAsync(string email, string password, string deviceId, string answer1, string answer2)
         {
             string postdata = "emailAddress=" + email
                 + "&password=" + password
@@ -437,24 +437,23 @@ namespace WinAuth
                 + "&secondSecurityAnswer=" + answer2;
 
             // call the enroll server
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(RESTORE_URL);
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
-            request.ContentLength = postdata.Length;
-            StreamWriter requestStream = new StreamWriter(request.GetRequestStream());
-            requestStream.Write(postdata);
-            requestStream.Close();
+            var requestMessage = new HttpRequestMessage(HttpMethod.Post, RESTORE_URL);
+            requestMessage.Content = new StringContent(postdata, Encoding.UTF8, "application/x-www-form-urlencoded");
+            requestMessage.Content.Headers.ContentLength = postdata.Length;
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(45);
+
             string responseData;
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (var response = await httpClient.SendAsync(requestMessage))
             {
                 // OK?
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                    throw new InvalidRestoreResponseException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
                 }
 
                 // load the response
-                using (StreamReader responseStream = new StreamReader(response.GetResponseStream()))
+                using (StreamReader responseStream = new StreamReader(await response.Content.ReadAsStreamAsync()))
                 {
                     responseData = responseStream.ReadToEnd();
                 }

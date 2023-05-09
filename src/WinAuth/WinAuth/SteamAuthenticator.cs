@@ -19,8 +19,8 @@
 using System.Web;
 using System.Collections.Specialized;
 using System.Runtime.Serialization.Formatters;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
@@ -87,7 +87,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? RecoveryCode => string.IsNullOrEmpty(SteamData) ? null : JObject.Parse(SteamData).SelectToken("revocation_code")?.Value<string>();
+    public string? RecoveryCode => string.IsNullOrEmpty(SteamData) ? null : JsonNode.Parse(SteamData)["revocation_code"]?.ToString();
 
     /// <summary>
     /// account_name
@@ -100,7 +100,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? AccountName => string.IsNullOrEmpty(SteamData) ? null : JObject.Parse(SteamData).SelectToken("account_name")?.Value<string>();
+    public string? AccountName => string.IsNullOrEmpty(SteamData) ? null : JsonNode.Parse(SteamData)["account_name"]?.ToString();
 
     /// <summary>
     /// steamid64
@@ -113,7 +113,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? SteamId64 => string.IsNullOrEmpty(SteamData) ? null : JObject.Parse(SteamData).SelectToken("steamid")?.Value<string>();
+    public string? SteamId64 => string.IsNullOrEmpty(SteamData) ? null : JsonNode.Parse(SteamData)["steamid"]?.ToString();
 
     /// <summary>
     /// JSON session data
@@ -325,7 +325,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <param name="headers"></param>
     /// <param name="timeout"></param>
     /// <returns>response body</returns>
-    static async Task<string> Request(string url, string method, NameValueCollection? data = null, CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0)
+    static async Task<string> RequestAsync(string url, string method, NameValueCollection? data = null, CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0)
     {
         // create form-encoded data for query or body
         var query = data == null ? string.Empty : string.Join('&', Array.ConvertAll(data.AllKeys, key => string.Format("{0}={1}", HttpUtility.UrlEncode(key), HttpUtility.UrlEncode(data[key]))));
@@ -338,66 +338,86 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         //});
         // call the server
         //HttpWebRequest request = GeneralHttpClientFactory(url);
-        var request = CreateHttpWebRequest(url);
-        request.Method = method;
-        request.Accept = "text/javascript, text/html, application/xml, text/xml, */*";
-        request.ServicePoint.Expect100Continue = false;
-        request.UserAgent = "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
-        request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-        request.Referer = COMMUNITY_BASE; // + "/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client";
-        if (headers != null)
-            request.Headers.Add(headers);
+        HttpClientHandler handler = new HttpClientHandler();
+        handler.AllowAutoRedirect = true;
+        //抓包分析需注释
+        handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+        handler.MaxAutomaticRedirections = 1000;
         if (cookies != null)
-            request.CookieContainer = cookies;
-        if (timeout != 0)
-            request.Timeout = timeout;
-
-        if (string.Compare(method, "POST", true) == 0)
         {
-            request.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
-            request.ContentLength = query.Length;
-
-            using var requestStream = new StreamWriter(await request.GetRequestStreamAsync());
-            requestStream.Write(query);
-            requestStream.Close();
+            handler.UseCookies = true;
+            handler.CookieContainer = cookies;
         }
 
-        try
+        using (HttpClient httpClient = new HttpClient(handler))
         {
-            using var response = (HttpWebResponse)await request.GetResponseAsync();
-            LogRequest(method, url, cookies, data, response.StatusCode.ToString() + " " + response.StatusDescription);
+            httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+            httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+            httpClient.Timeout = new TimeSpan(0, 0, 45);
+            httpClient.DefaultRequestHeaders.ExpectContinue = false;
+            if (headers != null)
+            {
+                for (int i = 0; i < headers.Count; i++)
+                {
+                    httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i], headers.Get(i));
+                }
+            }
+            if (timeout != 0)
+            {
+                httpClient.Timeout = new TimeSpan(0, 0, 0, 0, timeout);
+            }
 
-            // OK?
-            if (response.StatusCode != HttpStatusCode.OK)
-                throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+            try
+            {
+                HttpResponseMessage responseMessage;
 
-            // load the response
-            using var responseStream = new StreamReader(response.GetResponseStream());
-            var responseData = responseStream.ReadToEnd();
-            LogRequest(method, url, cookies, data, responseData);
-            return responseData;
-        }
-        catch (Exception ex)
-        {
-            LogException(method, url, cookies, data, ex);
+                string resultstring;
+                if (string.Compare(method, "POST", true) == 0)
+                {
+                    HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
+                    //content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded", "charset=UTF-8");
+                    content.Headers.ContentLength = query.Length;
+                    responseMessage = await httpClient.PostAsync(url, content);
+                }
+                else
+                {
+                    responseMessage = await httpClient.GetAsync(url);
+                }
 
-            if (ex is WebException exception && exception.Response != null && ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
-                throw new WinAuthUnauthorisedRequestException(ex);
+                LogRequest(method, url, cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
 
-            throw new WinAuthInvalidRequestException(ex.Message, ex);
+                // OK?
+                if (responseMessage.StatusCode != HttpStatusCode.OK)
+                    throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
+
+                resultstring = await responseMessage.Content.ReadAsStringAsync();
+
+                LogRequest(method, url, cookies, data, resultstring);
+                return resultstring;
+            }
+            catch (Exception ex)
+            {
+                LogException(method, url, cookies, data, ex);
+
+                if (ex is WebException exception && exception.Response != null && ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
+                    throw new WinAuthUnauthorisedRequestException(ex);
+
+                throw new WinAuthInvalidRequestException(ex.Message, ex);
+            }
         }
     }
 
-    static JObject JObjectParse(JToken token)
+    static JsonObject JObjectParse(JsonNode token)
     {
-        if (token is JObject obj) return obj;
-        return JObject.FromObject(token);
+        if (token is JsonObject obj) return obj;
+        return token.AsObject();
     }
 
     /// <summary>
     /// Enroll the authenticator with the server
     /// </summary>
-    public async Task<bool> Enroll(EnrollState state)
+    public async Task<bool> EnrollAsync(EnrollState state)
     {
         // clear error
         state.Error = null;
@@ -425,7 +445,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                         { "X-Requested-With", "com.valvesoftware.android.steam.community" },
                     };
 
-                    response = await Request("https://steamcommunity.com/login?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, cookies, headers);
+                    response = await RequestAsync("https://steamcommunity.com/login?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, cookies, headers);
                 }
 
                 // Steam strips any non-ascii chars from username and password
@@ -437,9 +457,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 // get the user's RSA key
                 data.Add("donotache", donotache_value);
                 data.Add("username", state.Username);
-                response = await Request(COMMUNITY_BASE + "/login/getrsakey", "POST", data, cookies);
-                var rsaresponse = JObject.Parse(response);
-                if (rsaresponse.SelectToken("success")?.Value<bool>() != true)
+                response = await RequestAsync(COMMUNITY_BASE + "/login/getrsakey", "POST", data, cookies);
+                var rsaresponse = JsonNode.Parse(response);
+                if (rsaresponse["success"]?.GetValue<bool>() != true)
                     throw new WinAuthInvalidEnrollResponseException(
                         $"Cannot get steam information for user: {state.Username}, response: {response}");
 
@@ -450,8 +470,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 {
                     var passwordBytes = Encoding.ASCII.GetBytes(state.Password);
                     var p = rsa.ExportParameters(false);
-                    p.Exponent = StringToByteArray(SelectTokenValueNotNull<string>(response, rsaresponse, "publickey_exp"));
-                    p.Modulus = StringToByteArray(SelectTokenValueNotNull<string>(response, rsaresponse, "publickey_mod"));
+                    p.Exponent = StringToByteArray(SelectTokenValueNotNull(response, rsaresponse, "publickey_exp"));
+                    p.Modulus = StringToByteArray(SelectTokenValueNotNull(response, rsaresponse, "publickey_mod"));
                     rsa.ImportParameters(p);
                     encryptedPassword = rsa.Encrypt(passwordBytes, false);
                 }
@@ -467,15 +487,15 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                     { "captchagid", state.CaptchaId ?? "-1" },
                     { "captcha_text", state.CaptchaText ?? "" },
                     { "emailsteamid", state.EmailAuthText != null ? state.SteamId ?? string.Empty : string.Empty },
-                    { "rsatimestamp", SelectTokenValueNotNull<string>(response, rsaresponse, "timestamp") },
+                    { "rsatimestamp", SelectTokenValueNotNull(response, rsaresponse, "timestamp") },
                     { "remember_login", "false" },
                     { "oauth_client_id", "DE45CD61" },
                     { "oauth_scope", "read_profile write_profile read_client write_client" },
                     { "donotache", donotache_value },
                 };
                 const string url_login_dologin = "/login/dologin/";
-                response = await Request(COMMUNITY_BASE + url_login_dologin, "POST", data, cookies);
-                var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+                response = await RequestAsync(COMMUNITY_BASE + url_login_dologin, "POST", data, cookies);
+                var loginresponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
                 if (loginresponse == null)
                     throw GetWinAuthInvalidEnrollResponseException(response, url_login_dologin, new ArgumentNullException(nameof(loginresponse)));
 
@@ -532,16 +552,16 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
                 // get the OAuth token - is stringified json
                 var oauth = (string)loginresponse["oauth"];
-                var oauthjson = JObject.Parse(oauth);
-                state.OAuthToken = SelectTokenValueNotNull<string>(oauth, oauthjson, "oauth_token");
-                if (oauthjson.SelectToken("steamid") != null)
-                    state.SteamId = SelectTokenValueNotNull<string>(oauth, oauthjson, "steamid");
+                var oauthjson = JsonNode.Parse(oauth);
+                state.OAuthToken = SelectTokenValueNotNull(oauth, oauthjson, "oauth_token");
+                if (oauthjson["steamid"] != null)
+                    state.SteamId = SelectTokenValueNotNull(oauth, oauthjson, "steamid");
             }
 
             // login to webapi
             data.Clear();
             data.Add("access_token", state.OAuthToken);
-            response = await Request(WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001", "POST", data);
+            response = await RequestAsync(WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001", "POST", data);
 
             var sessionid = cookies.GetCookies(new Uri(COMMUNITY_BASE + "/"))?["sessionid"]?.Value;
 
@@ -552,9 +572,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 data.Add("arg", "null");
                 data.Add("sessionid", sessionid);
 
-                response = await Request(COMMUNITY_BASE + "/steamguard/phoneajax", "POST", data, cookies);
-                var jsonresponse = JObject.Parse(response);
-                var hasPhone = SelectTokenValueNotNull<bool>(response, jsonresponse, "has_phone");
+                response = await RequestAsync(COMMUNITY_BASE + "/steamguard/phoneajax", "POST", data, cookies);
+                var jsonresponse = JsonNode.Parse(response);
+                var hasPhone = bool.Parse(SelectTokenValueNotNull(response, jsonresponse, "has_phone"));
                 if (hasPhone == false)
                 {
                     state.OAuthToken = null; // force new login
@@ -575,9 +595,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 data.Add("device_identifier", deviceId);
                 data.Add("sms_phone_id", "1");
                 const string url_ITwoFactorService_AddAuthenticator_v0001 = "/ITwoFactorService/AddAuthenticator/v0001";
-                response = await Request(WEBAPI_BASE + url_ITwoFactorService_AddAuthenticator_v0001, "POST", data);
-                var tfaresponse = JObject.Parse(response);
-                if (!response.Contains("status", StringComparison.CurrentCulture) && SelectTokenValueNotNull<int>(response, tfaresponse, "response.status") == 84)
+                response = await RequestAsync(WEBAPI_BASE + url_ITwoFactorService_AddAuthenticator_v0001, "POST", data);
+                var tfaresponse = JsonNode.Parse(response);
+                if (!response.Contains("status", StringComparison.CurrentCulture) && int.Parse(SelectTokenValueNotNull(response, tfaresponse, "response.status")) == 84)
                 {
                     // invalid response
                     state.OAuthToken = null; // force new login
@@ -597,22 +617,22 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 }
 
                 // save data into this authenticator
-                var secret = SelectTokenValueNotNull<string>(response, tfaresponse, "response.shared_secret");
+                var secret = SelectTokenValueNotNull(response, tfaresponse, "response.shared_secret");
                 SecretKey = Convert.FromBase64String(secret);
-                Serial = SelectTokenValueNotNull<string>(response, tfaresponse, "response.serial_number");
+                Serial = SelectTokenValueNotNull(response, tfaresponse, "response.serial_number");
                 DeviceId = deviceId;
-                state.RevocationCode = SelectTokenValueNotNull<string>(response, tfaresponse, "response.revocation_code");
+                state.RevocationCode = SelectTokenValueNotNull(response, tfaresponse, "response.revocation_code");
 
                 // add the steamid into the data
                 var steamdata = JObjectParse(SelectTokenNotNull(response, tfaresponse, "response", url_ITwoFactorService_AddAuthenticator_v0001));
-                if (steamdata.SelectToken("steamid") == null)
+                if (steamdata["steamid"] == null)
                     steamdata.Add("steamid", state.SteamId);
-                if (steamdata.SelectToken("steamguard_scheme") == null)
+                if (steamdata["steamguard_scheme"] == null)
                     steamdata.Add("steamguard_scheme", "2");
-                SteamData = steamdata.ToString(Formatting.None);
+                SteamData = steamdata.ToJsonString();
 
                 // calculate server drift
-                var servertime = SelectTokenValueNotNull<long>(response, tfaresponse, "response.server_time") * 1000;
+                var servertime = long.Parse(SelectTokenValueNotNull(response, tfaresponse, "response.server_time")) * 1000;
                 ServerTimeDiff = servertime - CurrentTime;
                 LastServerTime = DateTime.Now.Ticks;
 
@@ -633,9 +653,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             {
                 data.Add("authenticator_code", CalculateCode(false));
                 data.Add("authenticator_time", ServerTime.ToString());
-                response = await Request(WEBAPI_BASE + "/ITwoFactorService/FinalizeAddAuthenticator/v0001", "POST", data);
-                var finalizeresponse = JObject.Parse(response);
-                if (response.IndexOf("status") != -1 && SelectTokenValueNotNull<int>(response, finalizeresponse, "response.status") == INVALID_ACTIVATION_CODE)
+                response = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/FinalizeAddAuthenticator/v0001", "POST", data);
+                var finalizeresponse = JsonNode.Parse(response);
+                if (response.IndexOf("status") != -1 && int.Parse(SelectTokenValueNotNull(response, finalizeresponse, "response.status")) == INVALID_ACTIVATION_CODE)
                 {
                     state.Error = Strings.error_invalid_activation_code;
                     return false;
@@ -644,15 +664,15 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 // reset our time
                 if (response.IndexOf("server_time") != -1)
                 {
-                    var servertime = SelectTokenValueNotNull<long>(response, finalizeresponse, "response.server_time") * 1000;
+                    var servertime = long.Parse(SelectTokenValueNotNull(response, finalizeresponse, "response.server_time")) * 1000;
                     ServerTimeDiff = servertime - CurrentTime;
                     LastServerTime = DateTime.Now.Ticks;
                 }
 
                 // check success
-                if (SelectTokenValueNotNull<bool>(response, finalizeresponse, "response.success") == true)
+                if (bool.Parse(SelectTokenValueNotNull(response, finalizeresponse, "response.success")) == true)
                 {
-                    if (response.IndexOf("want_more") != -1 && SelectTokenValueNotNull<bool>(response, finalizeresponse, "response.want_more") == true)
+                    if (response.IndexOf("want_more") != -1 && bool.Parse(SelectTokenValueNotNull(response, finalizeresponse, "response.want_more")) == true)
                     {
                         ServerTimeDiff += Period * 1000L;
                         retries++;
@@ -680,7 +700,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             data.Add("access_token", state.OAuthToken);
             data.Add("steamid", state.SteamId);
             data.Add("email_type", "2");
-            response = await Request(WEBAPI_BASE + "/ITwoFactorService/SendEmail/v0001", "POST", data);
+            response = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/SendEmail/v0001", "POST", data);
 
             return true;
         }
@@ -693,19 +713,19 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             throw new WinAuthInvalidEnrollResponseException("Error enrolling new authenticator", ex);
         }
 
-        static JToken SelectTokenNotNull(string response, JToken token, string path, string? msg = null) =>
+        static JsonNode SelectTokenNotNull(string response, JsonNode token, string path, string? msg = null) =>
             SteamClient.Utils.SelectTokenNotNull(response, token, path, msg,
                 GetWinAuthInvalidEnrollResponseException);
 
-        static T SelectTokenValueNotNull<T>(string response, JToken token, string path, string? msg = null) =>
-            SteamClient.Utils.SelectTokenValueNotNull<T>(response, token, path, msg,
+        static string SelectTokenValueNotNull(string response, JsonNode token, string path, string? msg = null) =>
+            SteamClient.Utils.SelectTokenValueNotNull(response, token, path, msg,
                 GetWinAuthInvalidEnrollResponseException);
     }
 
     /// <summary>
     /// Synchronise this authenticator's time with Steam.
     /// </summary>
-    public override async void Sync()
+    public override async void SyncAsync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -717,11 +737,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         try
         {
-            var response = await Request(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
-            var json = JObject.Parse(response);
+            var response = await RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
+            var json = JsonNode.Parse(response);
 
             // get servertime in ms
-            long servertime = SelectTokenValueNotNull<long>(response, json, "response.server_time") * 1000;
+            long servertime = long.Parse(SelectTokenValueNotNull(response, json, "response.server_time")) * 1000;
 
             // get the difference between the server time and our current time
             ServerTimeDiff = servertime - CurrentTime;
@@ -753,7 +773,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             if (interval > 0)
                 ServerTimeDiff = (interval * Period * 1000L) - CurrentTime;
             else
-                Task.Run(Sync);
+                Task.Run(SyncAsync);
 
         var hmac = new HMac(new Sha1Digest());
         hmac.Init(new KeyParameter(SecretKey));

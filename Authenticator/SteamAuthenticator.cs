@@ -16,8 +16,6 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
@@ -26,10 +24,14 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Web;
 
 #if NUNIT
@@ -264,7 +266,7 @@ namespace WinAuth
         /// <param name="data">Name-data pairs</param>
         /// <param name="cookies">current cookie container</param>
         /// <returns>response body</returns>
-        private string Request(string url, string method, NameValueCollection data = null, CookieContainer cookies = null, NameValueCollection headers = null, int timeout = 0)
+        private async Task<string> RequestAsync(string url, string method, NameValueCollection data = null, CookieContainer cookies = null, NameValueCollection headers = null, int timeout = 0)
         {
             // create form-encoded data for query or body
             string query = (data == null ? string.Empty : string.Join("&", Array.ConvertAll(data.AllKeys, key => String.Format("{0}={1}", HttpUtility.UrlEncode(key), HttpUtility.UrlEncode(data[key])))));
@@ -278,74 +280,80 @@ namespace WinAuth
                 return true;
             });
             // call the server
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = method;
-            request.Accept = "text/javascript, text/html, application/xml, text/xml, */*";
-            request.ServicePoint.Expect100Continue = false;
-            request.UserAgent = "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30";
-            request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-            request.Referer = COMMUNITY_BASE; // + "/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client";
-            if (headers != null)
-            {
-                request.Headers.Add(headers);
-            }
+            HttpClientHandler handler = new HttpClientHandler();
+            handler.AllowAutoRedirect = true;
+            //抓包分析需注释
+            handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+            handler.MaxAutomaticRedirections = 1000;
             if (cookies != null)
             {
-                request.CookieContainer = cookies;
-            }
-            if (timeout != 0)
-            {
-                request.Timeout = timeout;
+                handler.UseCookies = true;
+                handler.CookieContainer = cookies;
             }
 
-            if (string.Compare(method, "POST", true) == 0)
+            using (HttpClient httpClient = new HttpClient(handler))
             {
-                request.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
-                request.ContentLength = query.Length;
-
-                StreamWriter requestStream = new StreamWriter(request.GetRequestStream());
-                requestStream.Write(query);
-                requestStream.Close();
-            }
-
-            try
-            {
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+                httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+                httpClient.Timeout = new TimeSpan(0, 0, 45);
+                httpClient.DefaultRequestHeaders.ExpectContinue = false;
+                if (headers != null)
                 {
-                    LogRequest(method, url, cookies, data, response.StatusCode.ToString() + " " + response.StatusDescription);
+                    for (int i = 0; i < headers.Count; i++)
+                    {
+                        httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i], headers.Get(i));
+                    }
+                }
+                if (timeout != 0)
+                {
+                    httpClient.Timeout = new TimeSpan(0, 0, 0, 0, timeout);
+                }
+
+                try
+                {
+                    HttpResponseMessage responseMessage;
+
+                    string resultstring;
+                    if (string.Compare(method, "POST", true) == 0)
+                    {
+                        HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
+                        //content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded", "charset=UTF-8");
+                        content.Headers.ContentLength = query.Length;
+                        responseMessage = await httpClient.PostAsync(url, content);
+                    }
+                    else
+                    {
+                        responseMessage = await httpClient.GetAsync(url);
+                    }
+
+                    LogRequest(method, url, cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
 
                     // OK?
-                    if (response.StatusCode != HttpStatusCode.OK)
-                    {
-                        throw new InvalidRequestException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
-                    }
+                    if (responseMessage.StatusCode != HttpStatusCode.OK)
+                        throw new InvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
 
-                    // load the response
-                    using (StreamReader responseStream = new StreamReader(response.GetResponseStream()))
-                    {
-                        string responseData = responseStream.ReadToEnd();
-                        LogRequest(method, url, cookies, data, responseData);
-                        return responseData;
-                    }
+                    resultstring = await responseMessage.Content.ReadAsStringAsync();
+
+                    LogRequest(method, url, cookies, data, resultstring);
+                    return resultstring;
                 }
-            }
-            catch (Exception ex)
-            {
-                LogException(method, url, cookies, data, ex);
-
-                if (ex is WebException && ((WebException)ex).Response != null && ((HttpWebResponse)((WebException)ex).Response).StatusCode == HttpStatusCode.Forbidden)
+                catch (Exception ex)
                 {
-                    throw new UnauthorisedRequestException(ex);
-                }
+                    LogException(method, url, cookies, data, ex);
 
-                throw new InvalidRequestException(ex.Message, ex);
+                    if (ex is WebException exception && exception.Response != null && ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
+                        throw new UnauthorisedRequestException(ex);
+
+                    throw new InvalidRequestException(ex.Message, ex);
+                }
             }
         }
 
         /// <summary>
         /// Enroll the authenticator with the server
         /// </summary>
-        public bool Enroll(EnrollState state)
+        public async Task<bool> EnrollAsync(EnrollState state)
         {
             // clear error
             state.Error = null;
@@ -371,7 +379,7 @@ namespace WinAuth
                         NameValueCollection headers = new NameValueCollection();
                         headers.Add("X-Requested-With", "com.valvesoftware.android.steam.community");
 
-                        response = Request("https://steamcommunity.com/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, cookies, headers);
+                        response = await RequestAsync("https://steamcommunity.com/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, cookies, headers);
                     }
 
                     // Steam strips any non-ascii chars from username and password
@@ -380,9 +388,9 @@ namespace WinAuth
 
                     // get the user's RSA key
                     data.Add("username", state.Username);
-                    response = Request(COMMUNITY_BASE + "/mobilelogin/getrsakey", "POST", data, cookies);
-                    var rsaresponse = JObject.Parse(response);
-                    if (rsaresponse.SelectToken("success").Value<bool>() != true)
+                    response = await RequestAsync(COMMUNITY_BASE + "/mobilelogin/getrsakey", "POST", data, cookies);
+                    var rsaresponse = JsonNode.Parse(response);
+                    if (rsaresponse["success"].GetValue<bool>() != true)
                     {
                         throw new InvalidEnrollResponseException("Cannot get steam information for user: " + state.Username);
                     }
@@ -394,8 +402,8 @@ namespace WinAuth
                     {
                         var passwordBytes = Encoding.ASCII.GetBytes(state.Password);
                         var p = rsa.ExportParameters(false);
-                        p.Exponent = Authenticator.StringToByteArray(rsaresponse.SelectToken("publickey_exp").Value<string>());
-                        p.Modulus = Authenticator.StringToByteArray(rsaresponse.SelectToken("publickey_mod").Value<string>());
+                        p.Exponent = Authenticator.StringToByteArray(rsaresponse["publickey_exp"].ToString());
+                        p.Modulus = Authenticator.StringToByteArray(rsaresponse["publickey_mod"].ToString());
                         rsa.ImportParameters(p);
                         encryptedPassword = rsa.Encrypt(passwordBytes, false);
                     }
@@ -410,13 +418,13 @@ namespace WinAuth
                     data.Add("captchagid", (state.CaptchaId != null ? state.CaptchaId : "-1"));
                     data.Add("captcha_text", (state.CaptchaText != null ? state.CaptchaText : "enter above characters"));
                     data.Add("emailsteamid", (state.EmailAuthText != null ? state.SteamId ?? string.Empty : string.Empty));
-                    data.Add("rsatimestamp", rsaresponse.SelectToken("timestamp").Value<string>());
+                    data.Add("rsatimestamp", rsaresponse["timestamp"].ToString());
                     data.Add("remember_login", "false");
                     data.Add("oauth_client_id", "DE45CD61");
                     data.Add("oauth_scope", "read_profile write_profile read_client write_client");
                     data.Add("donotache", new DateTime().ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds.ToString());
-                    response = Request(COMMUNITY_BASE + "/mobilelogin/dologin/", "POST", data, cookies);
-                    Dictionary<string, object> loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+                    response = await RequestAsync(COMMUNITY_BASE + "/mobilelogin/dologin/", "POST", data, cookies);
+                    Dictionary<string, object> loginresponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
 
                     if (loginresponse.ContainsKey("emailsteamid") == true)
                     {
@@ -483,18 +491,18 @@ namespace WinAuth
 
                     // get the OAuth token - is stringified json
                     string oauth = (string)loginresponse["oauth"];
-                    var oauthjson = JObject.Parse(oauth);
-                    state.OAuthToken = oauthjson.SelectToken("oauth_token").Value<string>();
-                    if (oauthjson.SelectToken("steamid") != null)
+                    var oauthjson = JsonNode.Parse(oauth);
+                    state.OAuthToken = oauthjson["oauth_token"].ToString();
+                    if (oauthjson["steamid"] != null)
                     {
-                        state.SteamId = oauthjson.SelectToken("steamid").Value<string>();
+                        state.SteamId = oauthjson["steamid"].ToString();
                     }
                 }
 
                 // login to webapi
                 data.Clear();
                 data.Add("access_token", state.OAuthToken);
-                response = Request(WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001", "POST", data);
+                response = await RequestAsync(WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001", "POST", data);
 
                 var sessionid = cookies.GetCookies(new Uri(COMMUNITY_BASE + "/"))["sessionid"].Value;
 
@@ -505,9 +513,9 @@ namespace WinAuth
                     data.Add("arg", "null");
                     data.Add("sessionid", sessionid);
 
-                    response = Request(COMMUNITY_BASE + "/steamguard/phoneajax", "POST", data, cookies);
-                    var jsonresponse = JObject.Parse(response);
-                    bool hasPhone = jsonresponse.SelectToken("has_phone").Value<Boolean>();
+                    response = await RequestAsync(COMMUNITY_BASE + "/steamguard/phoneajax", "POST", data, cookies);
+                    var jsonresponse = JsonNode.Parse(response);
+                    bool hasPhone = jsonresponse["has_phone"].GetValue<bool>();
                     if (hasPhone == false)
                     {
                         state.OAuthToken = null; // force new login
@@ -527,9 +535,9 @@ namespace WinAuth
                     data.Add("authenticator_type", "1");
                     data.Add("device_identifier", deviceId);
                     data.Add("sms_phone_id", "1");
-                    response = Request(WEBAPI_BASE + "/ITwoFactorService/AddAuthenticator/v0001", "POST", data);
-                    var tfaresponse = JObject.Parse(response);
-                    if (response.IndexOf("status") == -1 && tfaresponse.SelectToken("response.status").Value<int>() == 84)
+                    response = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/AddAuthenticator/v0001", "POST", data);
+                    var tfaresponse = JsonNode.Parse(response);
+                    if (response.IndexOf("status") == -1 && tfaresponse["response"]["status"].GetValue<int>() == 84)
                     {
                         // invalid response
                         state.OAuthToken = null; // force new login
@@ -549,26 +557,26 @@ namespace WinAuth
                     }
 
                     // save data into this authenticator
-                    var secret = tfaresponse.SelectToken("response.shared_secret").Value<string>();
+                    var secret = tfaresponse["response"]["shared_secret"].ToString();
                     SecretKey = Convert.FromBase64String(secret);
-                    Serial = tfaresponse.SelectToken("response.serial_number").Value<string>();
+                    Serial = tfaresponse["response"]["serial_number"].ToString();
                     DeviceId = deviceId;
-                    state.RevocationCode = tfaresponse.SelectToken("response.revocation_code").Value<string>();
+                    state.RevocationCode = tfaresponse["response"]["revocation_code"].ToString();
 
                     // add the steamid into the data
-                    var steamdata = JObject.Parse(tfaresponse.SelectToken("response").ToString());
-                    if (steamdata.SelectToken("steamid") == null)
+                    var steamdata = JsonNode.Parse(tfaresponse["response"].ToJsonString());
+                    if (steamdata["steamid"] == null)
                     {
-                        steamdata.Add("steamid", state.SteamId);
+                        steamdata["steamid"] = state.SteamId;
                     }
-                    if (steamdata.SelectToken("steamguard_scheme") == null)
+                    if (steamdata["steamguard_scheme"] == null)
                     {
-                        steamdata.Add("steamguard_scheme", "2");
+                        steamdata["steamguard_scheme"] = "2";
                     }
-                    SteamData = steamdata.ToString(Newtonsoft.Json.Formatting.None);
+                    SteamData = steamdata.ToJsonString();
 
                     // calculate server drift
-                    long servertime = tfaresponse.SelectToken("response.server_time").Value<long>() * 1000;
+                    long servertime = tfaresponse["response"]["server_time"].GetValue<long>() * 1000;
                     ServerTimeDiff = servertime - CurrentTime;
                     LastServerTime = DateTime.Now.Ticks;
 
@@ -589,9 +597,9 @@ namespace WinAuth
                 {
                     data.Add("authenticator_code", CalculateCode(false));
                     data.Add("authenticator_time", ServerTime.ToString());
-                    response = Request(WEBAPI_BASE + "/ITwoFactorService/FinalizeAddAuthenticator/v0001", "POST", data);
-                    var finalizeresponse = JObject.Parse(response);
-                    if (response.IndexOf("status") != -1 && finalizeresponse.SelectToken("response.status").Value<int>() == INVALID_ACTIVATION_CODE)
+                    response = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/FinalizeAddAuthenticator/v0001", "POST", data);
+                    var finalizeresponse = JsonNode.Parse(response);
+                    if (response.IndexOf("status") != -1 && finalizeresponse["response"]["status"].GetValue<int>() == INVALID_ACTIVATION_CODE)
                     {
                         state.Error = "Invalid activation code";
                         return false;
@@ -600,15 +608,15 @@ namespace WinAuth
                     // reset our time
                     if (response.IndexOf("server_time") != -1)
                     {
-                        long servertime = finalizeresponse.SelectToken("response.server_time").Value<long>() * 1000;
+                        long servertime = finalizeresponse["response"]["server_time"].GetValue<long>() * 1000;
                         ServerTimeDiff = servertime - CurrentTime;
                         LastServerTime = DateTime.Now.Ticks;
                     }
 
                     // check success
-                    if (finalizeresponse.SelectToken("response.success").Value<bool>() == true)
+                    if (finalizeresponse["response"]["success"].GetValue<bool>() == true)
                     {
-                        if (response.IndexOf("want_more") != -1 && finalizeresponse.SelectToken("response.want_more").Value<bool>() == true)
+                        if (response.IndexOf("want_more") != -1 && finalizeresponse["response"]["want_more"].GetValue<bool>() == true)
                         {
                             ServerTimeDiff += ((long)Period * 1000L);
                             retries++;
@@ -636,7 +644,7 @@ namespace WinAuth
                 data.Add("access_token", state.OAuthToken);
                 data.Add("steamid", state.SteamId);
                 data.Add("email_type", "2");
-                response = Request(WEBAPI_BASE + "/ITwoFactorService/SendEmail/v0001", "POST", data);
+                response = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/SendEmail/v0001", "POST", data);
 
                 return true;
             }
@@ -653,7 +661,7 @@ namespace WinAuth
         /// <summary>
         /// Synchronise this authenticator's time with Steam.
         /// </summary>
-        public override void Sync()
+        public override async void SyncAsync()
         {
             // check if data is protected
             if (SecretKey == null && EncryptedData != null)
@@ -669,11 +677,11 @@ namespace WinAuth
 
             try
             {
-                var response = Request(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
-                var json = JObject.Parse(response);
+                var response = RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
+                var json = JsonNode.Parse(await response);
 
                 // get servertime in ms
-                long servertime = json.SelectToken("response.server_time").Value<long>() * 1000;
+                long servertime = json["response"]["server_time"].GetValue<long>() * 1000;
 
                 // get the difference between the server time and our current time
                 ServerTimeDiff = servertime - CurrentTime;
@@ -708,7 +716,7 @@ namespace WinAuth
                 }
                 else
                 {
-                    Sync();
+                    SyncAsync();
                 }
             }
 

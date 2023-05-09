@@ -83,13 +83,13 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
     public void Enroll(string b32key)
     {
         SecretKey = Base32.GetInstance().Decode(b32key);
-        Sync();
+        SyncAsync();
     }
 
     /// <summary>
     /// Synchronise this authenticator's time with Google. We update our data record with the difference from our UTC time.
     /// </summary>
-    public override void Sync()
+    public override async void SyncAsync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -106,19 +106,19 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
         try
         {
             // we use the Header response field from a request to www.google.come
-            HttpWebRequest request = CreateHttpWebRequest(TIME_SYNC_URL);
-            request.Method = "GET";
-            request.ContentType = "text/html";
-            request.Timeout = 5000;
-            // get response
-            using HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            var requestMessage = new HttpRequestMessage(HttpMethod.Get, TIME_SYNC_URL);
+            requestMessage.Content = new StringContent(string.Empty, Encoding.UTF8, "text/html");
+            using var client = new HttpClient();
+            client.Timeout = new TimeSpan(0, 0, 5);
+            using var response = await client.SendAsync(requestMessage);
+
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                throw new ApplicationException(string.Format("{0}: {1}", (int)response.StatusCode, response.RequestMessage));
             }
 
-            var headerdate = response.Headers["Date"];
+            string headerdate = response.Headers.GetValues("Date").First();
             if (string.IsNullOrEmpty(headerdate) == false)
             {
                 DateTime dt;

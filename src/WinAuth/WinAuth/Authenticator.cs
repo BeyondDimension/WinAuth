@@ -289,7 +289,7 @@ partial class AuthenticatorValueDTO
             }
             else
             {
-                Sync();
+                SyncAsync();
             }
         }
 
@@ -332,7 +332,7 @@ partial class AuthenticatorValueDTO
         return code;
     }
 
-    public abstract void Sync();
+    public abstract void SyncAsync();
 
     #region Load / Save
 
@@ -709,7 +709,7 @@ partial class AuthenticatorValueDTO
         }
         else if (ServerTimeDiff == 0 || LastServerTime == 0 || LastServerTime < DateTime.Now.AddHours(-24).Ticks)
         {
-            Sync();
+            SyncAsync();
             return true;
         }
         else
@@ -1331,9 +1331,9 @@ partial class AuthenticatorValueDTO
 
     #endregion
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static HttpWebRequest CreateHttpWebRequest(string requestUriString)
-#pragma warning disable SYSLIB0014 // 类型或成员已过时
-        => GeneralHttpClientFactory.Create(requestUriString);
-#pragma warning restore SYSLIB0014 // 类型或成员已过时
+    //    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //    internal static HttpWebRequest CreateHttpWebRequest(string requestUriString)
+    //#pragma warning disable SYSLIB0014 // 类型或成员已过时
+    //        => GeneralHttpClientFactory.Create(requestUriString);
+    //#pragma warning restore SYSLIB0014 // 类型或成员已过时
 }

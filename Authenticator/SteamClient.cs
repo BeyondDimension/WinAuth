@@ -16,8 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -27,9 +25,13 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Net.Http;
+using Org.BouncyCastle.Asn1.Ocsp;
 
 #if NETFX_4
 using System.Runtime.Serialization;
@@ -153,8 +155,8 @@ namespace WinAuth
                 {
                     return null;
                 }
-                var poller = FromJSON(JObject.Parse(json));
-                return (poller.Duration != 0 ? poller : null);
+                var poller = FromJSON(JsonNode.Parse(json));
+                return poller.Duration != 0 ? poller : null;
             }
 
             /// <summary>
@@ -162,32 +164,32 @@ namespace WinAuth
             /// </summary>
             /// <param name="tokens">existing JKToken</param>
             /// <returns></returns>
-            public static ConfirmationPoller FromJSON(JToken tokens)
+            public static ConfirmationPoller FromJSON(JsonNode nodes)
             {
-                if (tokens == null)
+                if (nodes == null)
                 {
                     return null;
                 }
 
                 var poller = new ConfirmationPoller();
 
-                var token = tokens.SelectToken("duration");
+                var token = nodes["duration"];
                 if (token != null)
                 {
-                    poller.Duration = token.Value<int>();
+                    poller.Duration = token.GetValue<int>();
                 }
-                token = tokens.SelectToken("action");
+                token = nodes["action"];
                 if (token != null)
                 {
-                    poller.Action = (PollerAction)token.Value<int>();
+                    poller.Action = (PollerAction)token.GetValue<int>();
                 }
-                token = tokens.SelectToken("ids");
+                token = nodes["ids"];
                 if (token != null)
                 {
-                    poller.Ids = token.ToObject<List<string>>();
+                    poller.Ids = JsonSerializer.Deserialize<List<string>>(token);
                 }
 
-                return (poller.Duration != 0 ? poller : null);
+                return poller.Duration != 0 ? poller : null;
             }
         }
 
@@ -299,37 +301,37 @@ namespace WinAuth
             /// <param name="json"></param>
             private void FromJson(string json)
             {
-                var tokens = JObject.Parse(json);
-                var token = tokens.SelectToken("steamid");
+                var tokens = JsonNode.Parse(json);
+                var token = tokens["steamid"];
                 if (token != null)
                 {
-                    SteamId = token.Value<string>();
+                    SteamId = token.ToString();
                 }
-                token = tokens.SelectToken("cookies");
+                token = tokens["cookies"];
                 if (token != null)
                 {
                     Cookies = new CookieContainer();
 
                     // Net3.5 has a bug that prepends "." to domain, e.g. ".steamcommunity.com"
                     var uri = new Uri(COMMUNITY_BASE + "/");
-                    var match = Regex.Match(token.Value<string>(), @"([^=]+)=([^;]*);?", RegexOptions.Singleline);
+                    var match = Regex.Match(token.ToString(), @"([^=]+)=([^;]*);?", RegexOptions.Singleline);
                     while (match.Success == true)
                     {
                         Cookies.Add(uri, new Cookie(match.Groups[1].Value.Trim(), match.Groups[2].Value.Trim()));
                         match = match.NextMatch();
                     }
                 }
-                token = tokens.SelectToken("oauthtoken");
+                token = tokens["oauthtoken"];
                 if (token != null)
                 {
-                    OAuthToken = token.Value<string>();
+                    OAuthToken = token.ToString();
                 }
                 //token = tokens.SelectToken("umqid");
                 //if (token != null)
                 //{
                 //	this.UmqId = token.Value<string>();
                 //}
-                token = tokens.SelectToken("confs");
+                token = tokens["confs"];
                 if (token != null)
                 {
                     Confirmations = ConfirmationPoller.FromJSON(token);
@@ -508,8 +510,8 @@ namespace WinAuth
                 // get the user's RSA key
                 data.Add("username", username);
                 response = GetString(COMMUNITY_BASE + "/mobilelogin/getrsakey", "POST", data);
-                var rsaresponse = JObject.Parse(response);
-                if (rsaresponse.SelectToken("success").Value<bool>() != true)
+                var rsaresponse = JsonNode.Parse(response);
+                if (rsaresponse["success"].GetValue<bool>() != true)
                 {
                     InvalidLogin = true;
                     Error = "Unknown username";
@@ -523,8 +525,8 @@ namespace WinAuth
                 {
                     var passwordBytes = Encoding.ASCII.GetBytes(password);
                     var p = rsa.ExportParameters(false);
-                    p.Exponent = StringToByteArray(rsaresponse.SelectToken("publickey_exp").Value<string>());
-                    p.Modulus = StringToByteArray(rsaresponse.SelectToken("publickey_mod").Value<string>());
+                    p.Exponent = StringToByteArray(rsaresponse["publickey_exp"].ToString());
+                    p.Modulus = StringToByteArray(rsaresponse["publickey_mod"].ToString());
                     rsa.ImportParameters(p);
                     byte[] encryptedPassword = rsa.Encrypt(passwordBytes, false);
                     encryptedPassword64 = Convert.ToBase64String(encryptedPassword);
@@ -541,14 +543,14 @@ namespace WinAuth
                     { "captchagid", (string.IsNullOrEmpty(captchaId) == false ? captchaId : "-1") },
                     { "captcha_text", (string.IsNullOrEmpty(captchaText) == false ? captchaText : "enter above characters") },
                     //data.Add("emailsteamid", (string.IsNullOrEmpty(emailcode) == false ? this.SteamId ?? string.Empty : string.Empty));
-                    { "rsatimestamp", rsaresponse.SelectToken("timestamp").Value<string>() },
+                    { "rsatimestamp", rsaresponse["timestamp"].ToString() },
                     { "remember_login", "false" },
                     { "oauth_client_id", "DE45CD61" },
                     { "oauth_scope", "read_profile write_profile read_client write_client" },
                     { "donotache", new DateTime().ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds.ToString() }
                 };
                 response = GetString(COMMUNITY_BASE + "/mobilelogin/dologin/", "POST", data);
-                Dictionary<string, object> loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+                Dictionary<string, object> loginresponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
 
                 if (loginresponse.ContainsKey("emailsteamid") == true)
                 {
@@ -563,6 +565,7 @@ namespace WinAuth
                 EmailDomain = null;
                 Requires2FA = false;
 
+                //以下if语句块待测试
                 if (loginresponse.ContainsKey("login_complete") == false || (bool)loginresponse["login_complete"] == false || loginresponse.ContainsKey("oauth") == false)
                 {
                     InvalidLogin = true;
@@ -605,11 +608,11 @@ namespace WinAuth
 
                 // get the OAuth token
                 string oauth = (string)loginresponse["oauth"];
-                var oauthjson = JObject.Parse(oauth);
-                Session.OAuthToken = oauthjson.SelectToken("oauth_token").Value<string>();
-                if (oauthjson.SelectToken("steamid") != null)
+                var oauthjson = JsonNode.Parse(oauth);
+                Session.OAuthToken = oauthjson["oauth_token"].ToString();
+                if (oauthjson["steamid"] != null)
                 {
-                    Session.SteamId = oauthjson.SelectToken("steamid").Value<string>();
+                    Session.SteamId = oauthjson["steamid"].ToString();
                 }
 
                 //// perform UMQ login
@@ -669,22 +672,22 @@ namespace WinAuth
                     return false;
                 }
 
-                var json = JObject.Parse(response);
-                var token = json.SelectToken("response.token");
+                var json = JsonNode.Parse(response);
+                var token = json["response"]["token"];
                 if (token == null)
                 {
                     return false;
                 }
 
                 var cookieuri = new Uri(COMMUNITY_BASE + "/");
-                Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + token.Value<string>()));
+                Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + token.ToString()));
 
-                token = json.SelectToken("response.token_secure");
+                token = json["response"]["token_secure"];
                 if (token == null)
                 {
                     return false;
                 }
-                Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + token.Value<string>()));
+                Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + token.ToString()));
 
                 // perform UMQ login
                 //response = GetString(API_LOGON, "POST", data);
@@ -720,7 +723,7 @@ namespace WinAuth
             var data = new NameValueCollection();
             data.Add("access_token", Session.OAuthToken);
             var response = GetString(API_LOGON, "POST", data);
-            var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+            var loginresponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
             if (loginresponse.ContainsKey("umqid") == true)
             {
                 Session.UmqId = (string)loginresponse["umqid"];
@@ -796,14 +799,14 @@ namespace WinAuth
 
             _pollerCancellation = new CancellationTokenSource();
             var token = _pollerCancellation.Token;
-            Task.Factory.StartNew(() => PollConfirmations(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            Task.Factory.StartNew(() => PollConfirmationsAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
 
         /// <summary>
         /// Confirmation polling task
         /// </summary>
         /// <param name="cancel"></param>
-        public async void PollConfirmations(CancellationToken cancel)
+        public async void PollConfirmationsAsync(CancellationToken cancel)
         {
             //lock (this.Session.Confirmations)
             //{
@@ -915,8 +918,8 @@ namespace WinAuth
         {
             long servertime = (SteamAuthenticator.CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
-            var jids = JObject.Parse(Authenticator.SteamData).SelectToken("identity_secret");
-            string ids = (jids != null ? jids.Value<string>() : string.Empty);
+            var jids = JsonNode.Parse(Authenticator.SteamData)["identity_secret"];
+            string ids = (jids != null ? jids.ToString() : string.Empty);
 
             var timehash = CreateTimeHash(servertime, "conf", ids);
 
@@ -1025,9 +1028,9 @@ namespace WinAuth
             {
                 throw new InvalidSteamRequestException("Invalid request from steam: " + response);
             }
-            if (JObject.Parse(response).SelectToken("success").Value<bool>() == true)
+            if (JsonNode.Parse(response)["success"].GetValue<bool>() == true)
             {
-                string html = JObject.Parse(response).SelectToken("html").Value<string>();
+                string html = JsonNode.Parse(response)["html"].ToString();
 
                 Regex detailsRegex = new Regex(@"(.*<body[^>]*>\s*<div\s+class=""[^""]+"">).*(</div>.*?</body>\s*</html>)", RegexOptions.Singleline | RegexOptions.IgnoreCase);
                 var match = detailsRegex.Match(ConfirmationsHtml);
@@ -1056,8 +1059,8 @@ namespace WinAuth
 
             long servertime = (SteamAuthenticator.CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
-            var jids = JObject.Parse(Authenticator.SteamData).SelectToken("identity_secret");
-            string ids = (jids != null ? jids.Value<string>() : string.Empty);
+            var jids = JsonNode.Parse(Authenticator.SteamData)["identity_secret"];
+            string ids = (jids != null ? jids.ToString() : string.Empty);
             var timehash = CreateTimeHash(servertime, "conf", ids);
 
             var data = new NameValueCollection();
@@ -1081,8 +1084,8 @@ namespace WinAuth
                     return false;
                 }
 
-                var success = JObject.Parse(response).SelectToken("success");
-                if (success == null || success.Value<bool>() == false)
+                var success = JsonNode.Parse(response)["success"];
+                if (success == null || success.GetValue<bool>() == false)
                 {
                     Error = "Failed";
                     return false;
@@ -1159,7 +1162,7 @@ namespace WinAuth
         /// <returns>array of returned data</returns>
         public byte[] GetData(string url, string method = null, NameValueCollection formdata = null, NameValueCollection headers = null)
         {
-            return Request(url, method ?? "GET", formdata, headers);
+            return this.Request(url, method ?? "GET", formdata, headers);
         }
 
         /// <summary>
@@ -1204,63 +1207,72 @@ namespace WinAuth
                 }
 
                 // call the server
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-                request.Method = method;
-                request.Accept = "text/javascript, text/html, application/xml, text/xml, */*";
-                request.ServicePoint.Expect100Continue = false;
-                request.UserAgent = USERAGENT;
-                request.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-                request.Referer = COMMUNITY_BASE;
+                HttpClientHandler handler = new HttpClientHandler();
+                handler.AllowAutoRedirect = true;
+                //抓包分析需注释
+                handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
+                handler.MaxAutomaticRedirections = 1000;
+                if (this.Session.Cookies != null)
+                {
+                    handler.UseCookies = true;
+                    handler.CookieContainer = this.Session.Cookies;
+                }
+                using HttpClient httpClient = new HttpClient(handler);
+                httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+                httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+                httpClient.Timeout = new TimeSpan(0, 0, 45);
+                httpClient.DefaultRequestHeaders.ExpectContinue = false;
                 if (headers != null)
                 {
-                    request.Headers.Add(headers);
-                }
-
-                request.CookieContainer = Session.Cookies;
-
-                if (string.Compare(method, "POST", true) == 0)
-                {
-                    request.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
-                    request.ContentLength = query.Length;
-
-                    StreamWriter requestStream = new StreamWriter(request.GetRequestStream());
-                    requestStream.Write(query);
-                    requestStream.Close();
+                    for (int i = 0; i < headers.Count; i++)
+                    {
+                        httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i], headers.Get(i));
+                    }
                 }
 
                 try
                 {
-                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                    HttpResponseMessage responseMessage;
+                    if (string.Compare(method, "POST", true) == 0)
                     {
-                        LogRequest(method, url, request.CookieContainer, data, response.StatusCode.ToString() + " " + response.StatusDescription);
+                        HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
+                        content.Headers.ContentLength = query.Length;
+                        responseMessage = httpClient.PostAsync(url, content).Result;
+                    }
+                    else
+                    {
+                        responseMessage = httpClient.GetAsync(url).Result;
+                    }
 
-                        // OK?
-                        if (response.StatusCode != HttpStatusCode.OK)
+                    LogRequest(method, url, this.Session.Cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
+
+                    // OK?
+                    if (responseMessage.StatusCode != HttpStatusCode.OK)
+                    {
+                        throw new InvalidSteamRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
+                    }
+
+                    // load the response
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        byte[] buffer = new byte[4096];
+                        int read;
+                        while ((read = responseMessage.Content.ReadAsStream().Read(buffer, 0, 4096)) > 0)
                         {
-                            throw new InvalidSteamRequestException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription));
+                            ms.Write(buffer, 0, read);
                         }
 
-                        // load the response
-                        using (MemoryStream ms = new MemoryStream())
-                        {
-                            byte[] buffer = new byte[4096];
-                            int read;
-                            while ((read = response.GetResponseStream().Read(buffer, 0, 4096)) > 0)
-                            {
-                                ms.Write(buffer, 0, read);
-                            }
+                        byte[] responsedata = ms.ToArray();
 
-                            byte[] responsedata = ms.ToArray();
+                        LogRequest(method, url, this.Session.Cookies, data, responsedata != null && responsedata.Length != 0 ? Encoding.UTF8.GetString(responsedata) : string.Empty);
 
-                            LogRequest(method, url, request.CookieContainer, data, responsedata != null && responsedata.Length != 0 ? Encoding.UTF8.GetString(responsedata) : string.Empty);
-
-                            return responsedata;
-                        }
+                        return responsedata;
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogException(method, url, request.CookieContainer, data, ex);
+                    LogException(method, url, this.Session.Cookies, data, ex);
 
                     if (ex is WebException && ((WebException)ex).Response != null && ((HttpWebResponse)((WebException)ex).Response).StatusCode == HttpStatusCode.Forbidden)
                     {
