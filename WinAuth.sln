@@ -25,6 +25,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Code", "Code", "{4E45DBB6-8
 		src\ImplicitUsings.MessagePack.cs = src\ImplicitUsings.MessagePack.cs
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinAuth.UnitTest", "WinAuth.UnitTest\WinAuth.UnitTest.csproj", "{9F582D52-6468-4675-8338-0229EBCAA26F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{AC76E0B8-28E7-4138-BAF3-BC1E18C89C82}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC76E0B8-28E7-4138-BAF3-BC1E18C89C82}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC76E0B8-28E7-4138-BAF3-BC1E18C89C82}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F582D52-6468-4675-8338-0229EBCAA26F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F582D52-6468-4675-8338-0229EBCAA26F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F582D52-6468-4675-8338-0229EBCAA26F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F582D52-6468-4675-8338-0229EBCAA26F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
