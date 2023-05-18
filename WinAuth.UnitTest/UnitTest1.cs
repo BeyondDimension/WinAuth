@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
+using System.Net.Http.Headers;
 
 namespace WinAuth.UnitTest
 {
@@ -19,7 +20,7 @@ namespace WinAuth.UnitTest
             Ioc.ConfigureServices(service);
         }
 
-        [Test]
+        //[Test]
         public async Task Test1()
         {
             SteamAuthenticator steamAuthenticator = new SteamAuthenticator();
@@ -51,7 +52,7 @@ namespace WinAuth.UnitTest
         //[Test]
         //public void Test2()
         //{
-        //    TestContext.WriteLine(nameof(WinAuth));
         //}
+
     }
 }

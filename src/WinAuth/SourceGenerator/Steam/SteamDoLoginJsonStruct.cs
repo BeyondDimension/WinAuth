@@ -8,104 +8,144 @@ namespace WinAuth
 {
     sealed class SteamDoLoginJsonStruct
     {
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
 
-        public string Redirect_uri { get; set; }
+        [JsonPropertyName("redirect_uri")]
+        public string RedirectUri { get; set; }
 
-        public string Emailsteamid { get; set; } = string.Empty;
+        [JsonPropertyName("emailsteamid")]
+        public string EmailSteamId { get; set; } = string.Empty;
 
-        public bool Captcha_needed { get; set; }
+        [JsonPropertyName("captcha_needed")]
+        public bool CaptchaNeeded { get; set; }
 
-        public string Captcha_gid { get; set; } = string.Empty;
+        [JsonPropertyName("captcha_gid")]
+        public string CaptchaGId { get; set; } = string.Empty;
 
-        public bool Emailauth_needed { get; set; }
+        [JsonPropertyName("emailauth_needed")]
+        public bool EmailAuthNeeded { get; set; }
 
-        public string Emaildomain { get; set; } = string.Empty;
+        [JsonPropertyName("emaildomain")]
+        public string EmailDomain { get; set; } = string.Empty;
 
-        public bool Requires_twofactor { get; set; }
+        [JsonPropertyName("requires_twofactor")]
+        public bool RequiresTwoFactor { get; set; }
 
-        public bool Login_complete { get; set; }
+        [JsonPropertyName("login_complete")]
+        public bool LoginComplete { get; set; }
 
-        public string? Oauth { get; set; }
+        [JsonPropertyName("oauth")]
+        public string? OAuth { get; set; }
 
+        [JsonPropertyName("message")]
         public string Message { get; set; } = string.Empty;
     }
 
     sealed class SteamDoLoginOauthJsonStruct
     {
-        public string Oauth_token { get; set; } = string.Empty;
+        [JsonPropertyName("oauth_token")]
+        public string OAuthToken { get; set; } = string.Empty;
 
-        public string Steamid { get; set; } = string.Empty;
+        [JsonPropertyName("steamid")]
+        public string SteamId { get; set; } = string.Empty;
 
-        public string Account_name { get; set; }
+        [JsonPropertyName("account_name")]
+        public string AccountName { get; set; } = string.Empty;
 
-        public string Wgtoken { get; set; }
+        [JsonPropertyName("wgtoken")]
+        public string WgToken { get; set; } = string.Empty;
 
-        public string Wgtoken_secure { get; set; }
+        [JsonPropertyName("wgtoken_secure")]
+        public string WgTokenSecure { get; set; } = string.Empty;
 
-        public string Webcookie { get; set; }
+        [JsonPropertyName("webcookie")]
+        public string WebCookie { get; set; } = string.Empty;
     }
 
     sealed class SteamDoLoginHasPhoneJsonStruct
     {
-        public bool Has_phone { get; set; }
+        [JsonPropertyName("has_phone")]
+        public bool HasPhone { get; set; }
 
+        [JsonPropertyName("fatal")]
         public bool Fatal { get; set; }
 
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
 
+        [JsonPropertyName("phoneTimeMinutesOff")]
         public int PhoneTimeMinutesOff { get; set; }
     }
 
     sealed class SteamDoLoginTfaJsonStruct
     {
+        [JsonPropertyName("response")]
         public SteamDoLoginSteamDataJsonStruct Response { get; set; }
     }
 
     sealed class SteamDoLoginSteamDataJsonStruct
     {
+        [JsonPropertyName("status")]
         public int Status { get; set; }
 
-        public string Shared_secret { get; set; } = string.Empty;
+        [JsonPropertyName("shared_secret")]
+        public string SharedSecret { get; set; } = string.Empty;
 
-        public string Serial_number { get; set; } = string.Empty;
+        [JsonPropertyName("serial_number")]
+        public string SerialNumber { get; set; } = string.Empty;
 
-        public string Revocation_code { get; set; } = string.Empty;
+        [JsonPropertyName("revocation_code")]
+        public string RevocationCode { get; set; } = string.Empty;
 
         //实际上不会返回该串数据，只是为了SteamData方便序列化而加上
-        public string Steamid { get; set; } = string.Empty;
+        [JsonPropertyName("steamid")]
+        public string SteamId { get; set; } = string.Empty;
 
         //实际上不会返回该串数据，只是为了SteamData方便序列化而加上
-        public string Steamguard_scheme { get; set; } = string.Empty;
+        [JsonPropertyName("steamguard_scheme")]
+        public string SteamGuardScheme { get; set; } = string.Empty;
 
-        public string Server_time { get; set; } = string.Empty;
+        [JsonPropertyName("server_time")]
+        public string ServerTime { get; set; } = string.Empty;
 
+        [JsonPropertyName("uri")]
         public string Uri { get; set; } = string.Empty;
 
-        public string Account_name { get; set; } = string.Empty;
+        [JsonPropertyName("account_name")]
+        public string AccountName { get; set; } = string.Empty;
 
-        public string Token_gid { get; set; } = string.Empty;
+        [JsonPropertyName("token_gid")]
+        public string TokenGid { get; set; } = string.Empty;
 
-        public string Identity_secret { get; set; } = string.Empty;
+        [JsonPropertyName("identity_secret")]
+        public string IdentitySecret { get; set; } = string.Empty;
 
+        [JsonPropertyName("secret_1")]
         public string Secret_1 { get; set; } = string.Empty;
 
-        public string Phone_number_hint { get; set; } = string.Empty;
+        [JsonPropertyName("phone_number_hint")]
+        public string PhoneNumberHint { get; set; } = string.Empty;
     }
 
     sealed class SteamDoLoginFinalizeJsonStruct
     {
+        [JsonPropertyName("response")]
         public SteamDoLoginFinalizeResponseJsonStruct Response { get; set; }
     }
 
     sealed class SteamDoLoginFinalizeResponseJsonStruct
     {
+        [JsonPropertyName("status")]
         public int Status { get; set; }
 
-        public string Server_time { get; set; } = string.Empty;
+        [JsonPropertyName("server_time")]
+        public string ServerTime { get; set; } = string.Empty;
 
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
 
-        public bool Want_more { get; set; }
+        [JsonPropertyName("want_more")]
+        public bool WantMore { get; set; }
     }
 }

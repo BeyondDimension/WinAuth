@@ -1238,7 +1238,7 @@ public partial class SteamClient : IDisposable
     /// <returns>hash string</returns>
     static string CreateTimeHash(long time, string tag, string secret)
     {
-        byte[] b64secret = Convert.FromBase64String(secret);
+        byte[] b64secret = Base64Extensions.Base64DecodeToByteArray(secret);
 
         int bufferSize = 8;
         if (string.IsNullOrEmpty(tag) == false)

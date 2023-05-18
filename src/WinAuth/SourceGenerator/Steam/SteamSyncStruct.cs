@@ -8,28 +8,38 @@ namespace WinAuth
 {
     sealed class SteamSyncStruct
     {
+        [JsonPropertyName("response")]
         public SteamSyncResponseStruct Response { get; set; }
     }
 
     sealed class SteamSyncResponseStruct
     {
-        public string Server_time { get; set; } = string.Empty;
+        [JsonPropertyName("server_time")]
+        public string ServerTime { get; set; } = string.Empty;
 
-        public string Skew_tolerance_seconds { get; set; } = string.Empty;
+        [JsonPropertyName("skew_tolerance_seconds")]
+        public string SkewToleranceSeconds { get; set; } = string.Empty;
 
-        public string Large_time_jink { get; set; } = string.Empty;
+        [JsonPropertyName("large_time_jink")]
+        public string LargeTimeJink { get; set; } = string.Empty;
 
-        public int Probe_frequency_seconds { get; set; }
+        [JsonPropertyName("probe_frequency_seconds")]
+        public int ProbeFrequencySeconds { get; set; }
 
-        public int Adjusted_time_probe_frequency_seconds { get; set; }
+        [JsonPropertyName("adjusted_time_probe_frequency_seconds")]
+        public int AdjustedTimeProbeFrequencySeconds { get; set; }
 
-        public int Hint_probe_frequency_seconds { get; set; }
+        [JsonPropertyName("hint_probe_frequency_seconds")]
+        public int HintProbeFrequencySeconds { get; set; }
 
-        public int Sync_timeout { get; set; }
+        [JsonPropertyName("sync_timeout")]
+        public int SyncTimeOut { get; set; }
 
-        public int Try_again_seconds { get; set; }
+        [JsonPropertyName("try_again_seconds")]
+        public int TryAgainSeconds { get; set; }
 
-        public int Max_attempts { get; set; }
+        [JsonPropertyName("max_attempts")]
+        public int MaxAttempts { get; set; }
 
     }
 

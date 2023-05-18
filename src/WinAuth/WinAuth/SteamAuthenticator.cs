@@ -459,9 +459,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 if (rsaresponse?.Success != true)
                     throw new WinAuthInvalidEnrollResponseException(
                         $"Cannot get steam information for user: {state.Username}, response: {response}");
-                rsaresponse.Publickey_exp.ThrowIsNull();
-                rsaresponse.Publickey_mod.ThrowIsNull();
-                rsaresponse.Timestamp.ThrowIsNull();
+                rsaresponse.PublicKeyExp.ThrowIsNull();
+                rsaresponse.PublicKeyMod.ThrowIsNull();
+                rsaresponse.TimeStamp.ThrowIsNull();
                 // encrypt password with RSA key
                 RNGCryptoServiceProvider random = new();
                 byte[] encryptedPassword;
@@ -469,8 +469,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 {
                     var passwordBytes = Encoding.ASCII.GetBytes(state.Password);
                     var p = rsa.ExportParameters(false);
-                    p.Exponent = StringToByteArray(rsaresponse.Publickey_exp);
-                    p.Modulus = StringToByteArray(rsaresponse.Publickey_mod);
+                    p.Exponent = StringToByteArray(rsaresponse.PublicKeyExp);
+                    p.Modulus = StringToByteArray(rsaresponse.PublicKeyMod);
                     rsa.ImportParameters(p);
                     encryptedPassword = rsa.Encrypt(passwordBytes, false);
                 }
@@ -486,7 +486,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                     { "captchagid", state.CaptchaId ?? "-1" },
                     { "captcha_text", state.CaptchaText ?? "" },
                     { "emailsteamid", state.EmailAuthText != null ? state.SteamId ?? string.Empty : string.Empty },
-                    { "rsatimestamp", rsaresponse.Timestamp },
+                    { "rsatimestamp", rsaresponse.TimeStamp },
                     { "remember_login", "false" },
                     { "oauth_client_id", "DE45CD61" },
                     { "oauth_scope", "read_profile write_profile read_client write_client" },
@@ -494,20 +494,25 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 };
                 const string url_login_dologin = "/login/dologin/";
                 response = await RequestAsync(COMMUNITY_BASE + url_login_dologin, "POST", data, cookies);
+                if (response.Contains("\"captcha_gid\":-1"))
+                {
+                    state.Error = "您所输入的账户名或密码不正确。";
+                    return false;
+                }
                 var loginresponse = JsonSerializer.Deserialize<SteamDoLoginJsonStruct>(response, options);
                 loginresponse.ThrowIsNull();
 
                 //if (loginresponse == null)
                 //    throw GetWinAuthInvalidEnrollResponseException(response, url_login_dologin, new ArgumentNullException(nameof(loginresponse)));
 
-                if (loginresponse.Emailsteamid != string.Empty)
-                    state.SteamId = loginresponse.Emailsteamid;
+                if (loginresponse.EmailSteamId != string.Empty)
+                    state.SteamId = loginresponse.EmailSteamId;
 
                 // require captcha
-                if (loginresponse.Captcha_needed == true)
+                if (loginresponse.CaptchaNeeded == true)
                 {
                     state.RequiresCaptcha = true;
-                    state.CaptchaId = loginresponse.Captcha_gid;
+                    state.CaptchaId = loginresponse.CaptchaGId;
                     state.CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + state.CaptchaId;
                 }
                 else
@@ -519,11 +524,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 }
 
                 // require email auth
-                if (loginresponse.Emailauth_needed == true)
+                if (loginresponse.EmailAuthNeeded == true)
                 {
-                    if (loginresponse.Emaildomain != null)
+                    if (loginresponse.EmailDomain != null)
                     {
-                        var emaildomain = loginresponse.Emaildomain;
+                        var emaildomain = loginresponse.EmailDomain;
                         if (string.IsNullOrEmpty(emaildomain) == false)
                             state.EmailDomain = emaildomain;
                     }
@@ -536,15 +541,15 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 }
 
                 // require 2fa auth
-                if (loginresponse.Requires_twofactor == true)
+                if (loginresponse.RequiresTwoFactor == true)
                     state.Requires2FA = true;
                 else
                     state.Requires2FA = false;
 
                 // if we didn't login, return the result
-                if (loginresponse.Login_complete == false || loginresponse.Oauth == null)
+                if (loginresponse.LoginComplete == false || loginresponse.OAuth == null)
                 {
-                    if (loginresponse.Oauth == null)
+                    if (loginresponse.OAuth == null)
                         state.Error = "Invalid response from Steam (No OAuth token)";
                     if (loginresponse.Message != null)
                         state.Error = loginresponse.Message;
@@ -552,9 +557,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 }
 
                 // get the OAuth token - is stringified json
-                loginresponse.Oauth.ThrowIsNull();
+                loginresponse.OAuth.ThrowIsNull();
                 //loginresponse.Oauth.Steamid.ThrowIsNull();
-                var oauthjson = JsonNode.Parse(loginresponse.Oauth);
+                var oauthjson = JsonNode.Parse(loginresponse.OAuth);
                 state.OAuthToken = oauthjson["oauth_token"].ToString();
                 if (oauthjson["steamid"] != null)
                 {
@@ -582,7 +587,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 response = await RequestAsync(COMMUNITY_BASE + "/steamguard/phoneajax", "POST", data, cookies);
                 var jsonresponse = JsonSerializer.Deserialize<SteamDoLoginHasPhoneJsonStruct>(response, options);
                 jsonresponse.ThrowIsNull();
-                var hasPhone = jsonresponse.Has_phone;
+                var hasPhone = jsonresponse.HasPhone;
                 if (hasPhone == false)
                 {
                     state.OAuthToken = null; // force new login
@@ -626,22 +631,23 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 }
 
                 // save data into this authenticator
-                var secret = tfaresponse.Response.Shared_secret;
-                SecretKey = Convert.FromBase64String(secret);
-                Serial = tfaresponse.Response.Serial_number;
+                var secret = tfaresponse.Response.SharedSecret;
+                //SecretKey = Convert.FromBase64String(secret);
+                SecretKey = Base64Extensions.Base64DecodeToByteArray_Nullable(secret);
+                Serial = tfaresponse.Response.SerialNumber;
                 DeviceId = deviceId;
-                state.RevocationCode = tfaresponse.Response.Revocation_code;
+                state.RevocationCode = tfaresponse.Response.RevocationCode;
 
                 // add the steamid into the data
                 var steamdata = tfaresponse.Response;
-                if (steamdata.Steamid == string.Empty)
-                    steamdata.Steamid = state.SteamId;
-                if (steamdata.Steamguard_scheme == string.Empty)
-                    steamdata.Steamguard_scheme = "2";
+                if (steamdata.SteamId == string.Empty)
+                    steamdata.SteamId = state.SteamId;
+                if (steamdata.SteamGuardScheme == string.Empty)
+                    steamdata.SteamGuardScheme = "2";
                 SteamData = JsonSerializer.Serialize(steamdata, options);
 
                 // calculate server drift
-                var servertime = long.Parse(tfaresponse.Response.Server_time) * 1000;
+                var servertime = long.Parse(tfaresponse.Response.ServerTime) * 1000;
                 ServerTimeDiff = servertime - CurrentTime;
                 LastServerTime = DateTime.Now.Ticks;
 
@@ -674,7 +680,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 // reset our time
                 if (response.IndexOf("server_time") != -1)
                 {
-                    var servertime = long.Parse(finalizeresponse.Response.Server_time) * 1000;
+                    var servertime = long.Parse(finalizeresponse.Response.ServerTime) * 1000;
                     ServerTimeDiff = servertime - CurrentTime;
                     LastServerTime = DateTime.Now.Ticks;
                 }
@@ -682,7 +688,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 // check success
                 if (finalizeresponse.Response.Success == true)
                 {
-                    if (response.IndexOf("want_more") != -1 && finalizeresponse.Response.Want_more == true)
+                    if (response.IndexOf("want_more") != -1 && finalizeresponse.Response.WantMore == true)
                     {
                         ServerTimeDiff += Period * 1000L;
                         retries++;
@@ -752,7 +758,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
 
             // get servertime in ms
-            long servertime = long.Parse(json.Response.Server_time) * 1000;
+            long servertime = long.Parse(json.Response.ServerTime) * 1000;
 
             // get the difference between the server time and our current time
             ServerTimeDiff = servertime - CurrentTime;

@@ -30,8 +30,14 @@ namespace WinAuth;
 
 [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
 [MessagePackObject(keyAsPropertyName: true)]
-public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
+public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
 {
+    /// <summary>
+    /// 正则表达式源生成
+    /// </summary>
+    [GeneratedRegex(".*\"country\":\"([^\"]*)\".*", RegexOptions.IgnoreCase)]
+    private static partial Regex CountryRegex();
+
     /// <summary>
     /// Number of digits in code
     /// </summary>
@@ -266,7 +272,9 @@ public sealed class BattleNetAuthenticator : AuthenticatorValueDTO
         if (string.IsNullOrEmpty(responseString) == false)
         {
             // not worth a full json parser, just regex it
-            var match = Regex.Match(responseString, ".*\"country\":\"([^\"]*)\".*", RegexOptions.IgnoreCase);
+            //var match = Regex.Match(responseString, ".*\"country\":\"([^\"]*)\".*", RegexOptions.IgnoreCase);
+            var countryregex = CountryRegex();
+            var match = countryregex.Match(responseString);
             if (match.Success == true)
             {
                 // match the correct region
