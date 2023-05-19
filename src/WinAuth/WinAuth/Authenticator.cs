@@ -503,9 +503,11 @@ partial class AuthenticatorValueDTO
         {
             using var ms = new MemoryStream();
             // get the plain version
-            var settings = new XmlWriterSettings();
-            settings.Indent = true;
-            settings.Encoding = Encoding.UTF8;
+            var settings = new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = Encoding.UTF8,
+            };
             using (var encryptedwriter = XmlWriter.Create(ms, settings))
             {
                 var encrpytedData = EncryptedData;
@@ -700,9 +702,7 @@ partial class AuthenticatorValueDTO
         }
 
         // check if we need to sync, or if it's been a day
-#pragma warning disable CS0612 // 类型或成员已过时
         if (this is HOTPAuthenticator)
-#pragma warning restore CS0612 // 类型或成员已过时
         {
             // no time sync
             return true;
@@ -921,7 +921,7 @@ partial class AuthenticatorValueDTO
             datastart += salt.Length;
             var hash = data.Substring(datastart, Math.Min(sha.HashSize / 8 * 2, data.Length - datastart));
             datastart += hash.Length;
-            data = data.Substring(datastart);
+            data = data[datastart..];
 
             data = DecryptSequenceNoHash(data, encryptedTypes, password);
 
@@ -1104,8 +1104,7 @@ partial class AuthenticatorValueDTO
         else
         {
             var s = Ioc.Get_Nullable<ILocalDataProtectionProvider.IProtectedData>();
-            if (s == null) throw new PlatformNotSupportedException();
-            return s.Protect(userData);
+            return s == null ? throw new PlatformNotSupportedException() : s.Protect(userData);
         }
     }
 
@@ -1118,8 +1117,7 @@ partial class AuthenticatorValueDTO
         else
         {
             var s = Ioc.Get_Nullable<ILocalDataProtectionProvider.IProtectedData>();
-            if (s == null) throw new PlatformNotSupportedException();
-            return s.Unprotect(encryptedData);
+            return s == null ? throw new PlatformNotSupportedException() : s.Unprotect(encryptedData);
         }
     }
 
@@ -1186,7 +1184,7 @@ partial class AuthenticatorValueDTO
     public static string Decrypt(string data, string? password, bool PBKDF2)
     {
         byte[] key;
-        var saltBytes = StringToByteArray(data.Substring(0, SALT_LENGTH * 2));
+        var saltBytes = StringToByteArray(data[..(SALT_LENGTH * 2)]);
 
         if (PBKDF2 == true)
         {
@@ -1307,7 +1305,7 @@ partial class AuthenticatorValueDTO
         }
         else
         {
-            throw new ArgumentException(nameof(webResponse));
+            throw new ArgumentException(null, nameof(webResponse));
         }
     }
 
@@ -1325,7 +1323,7 @@ partial class AuthenticatorValueDTO
         }
         else
         {
-            throw new ArgumentException(nameof(webResponse));
+            throw new ArgumentException(null, nameof(webResponse));
         }
     }
 

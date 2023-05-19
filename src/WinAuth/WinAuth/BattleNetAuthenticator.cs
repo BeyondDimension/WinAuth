@@ -18,13 +18,12 @@
 
 #pragma warning disable CA2211 // Non-constant fields should not be visible
 
-using System.Text;
-using System.Xml;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
+using System.Xml;
 
 namespace WinAuth;
 
@@ -243,8 +242,10 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         // Battle.net does a GEO IP lookup anyway so there is no need to pass the region
         // however China has its own URL so we must still do our own GEO IP lookup to find the country
 
-        var requestMessage = new HttpRequestMessage(HttpMethod.Get, GEOIPURL);
-        requestMessage.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Get, GEOIPURL)
+        {
+            Content = new StringContent(string.Empty, Encoding.UTF8, "application/json"),
+        };
         using var httpClient = new HttpClient();
         httpClient.Timeout = TimeSpan.FromSeconds(10);
         // get response
@@ -344,8 +345,10 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         byte[]? responseData = null;
         try
         {
-            requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(region) + ENROLL_PATH);
-            requestMessage.Content = new StringContent(Encoding.UTF8.GetString(encrypted, 0, encrypted.Length), Encoding.UTF8, "application/octet-stream");
+            requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(region) + ENROLL_PATH)
+            {
+                Content = new StringContent(Encoding.UTF8.GetString(encrypted, 0, encrypted.Length), Encoding.UTF8, "application/octet-stream"),
+            };
             requestMessage.Content.Headers.ContentLength = encrypted.Length;
 
             var response = await httpClient.SendAsync(requestMessage);
@@ -520,8 +523,10 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         var serialBytes = Encoding.UTF8.GetBytes(serial.ToUpper().Replace("-", string.Empty));
 
         // send the request to the server to get our challenge
-        var requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTORE_PATH);
-        requestMessage.Content = new StringContent(Encoding.UTF8.GetString(serialBytes, 0, serialBytes.Length), Encoding.UTF8, "application/octet-stream");
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTORE_PATH)
+        {
+            Content = new StringContent(Encoding.UTF8.GetString(serialBytes, 0, serialBytes.Length), Encoding.UTF8, "application/octet-stream"),
+        };
         requestMessage.Content.Headers.ContentLength = serialBytes.Length;
         using var httpClient = new HttpClient();
 
@@ -602,8 +607,10 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         Array.Copy(encrypted, 0, postbytes, serialBytes.Length, encrypted.Length);
 
         // send the challenge response back to the server
-        requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTOREVALIDATE_PATH);
-        requestMessage.Content = new StringContent(Encoding.UTF8.GetString(postbytes, 0, postbytes.Length), Encoding.UTF8, "application/octet-stream");
+        requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTOREVALIDATE_PATH)
+        {
+            Content = new StringContent(Encoding.UTF8.GetString(postbytes, 0, postbytes.Length), Encoding.UTF8, "application/octet-stream"),
+        };
         requestMessage.Content.Headers.ContentLength = postbytes.Length;
 
         byte[]? secretKey = null;

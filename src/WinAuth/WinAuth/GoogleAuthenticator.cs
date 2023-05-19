@@ -106,8 +106,10 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
         try
         {
             // we use the Header response field from a request to www.google.come
-            var requestMessage = new HttpRequestMessage(HttpMethod.Get, TIME_SYNC_URL);
-            requestMessage.Content = new StringContent(string.Empty, Encoding.UTF8, "text/html");
+            var requestMessage = new HttpRequestMessage(HttpMethod.Get, TIME_SYNC_URL)
+            {
+                Content = new StringContent(string.Empty, Encoding.UTF8, "text/html"),
+            };
             using var client = new HttpClient();
             client.Timeout = new TimeSpan(0, 0, 5);
             using var response = await client.SendAsync(requestMessage);
@@ -121,8 +123,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
             string headerdate = response.Headers.GetValues("Date").First();
             if (string.IsNullOrEmpty(headerdate) == false)
             {
-                DateTime dt;
-                if (DateTime.TryParse(headerdate, out dt) == true)
+                if (DateTime.TryParse(headerdate, out var dt) == true)
                 {
                     // get as ms since epoch
                     long dtms = Convert.ToInt64((dt.ToUniversalTime() - new DateTime(1970, 1, 1)).TotalMilliseconds);
