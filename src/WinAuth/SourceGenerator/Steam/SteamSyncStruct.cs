@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 
 namespace WinAuth
 {
-    sealed class SteamSyncStruct
+    public sealed class SteamSyncStruct
     {
         [JsonPropertyName("response")]
         public SteamSyncResponseStruct Response { get; set; }
     }
 
-    sealed class SteamSyncResponseStruct
+    public sealed class SteamSyncResponseStruct
     {
         [JsonPropertyName("server_time")]
         public string ServerTime { get; set; } = string.Empty;

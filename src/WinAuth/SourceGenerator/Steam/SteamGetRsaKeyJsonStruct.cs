@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WinAuth
 {
-    sealed class SteamGetRsaKeyJsonStruct
+    public sealed class SteamGetRsaKeyJsonStruct
     {
         [JsonPropertyName("success")]
         public bool Success { get; set; }

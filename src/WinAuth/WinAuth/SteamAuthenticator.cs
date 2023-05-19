@@ -87,7 +87,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? RecoveryCode => string.IsNullOrEmpty(SteamData) ? null : JsonNode.Parse(SteamData)["revocation_code"]?.ToString();
+    public string? RecoveryCode => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.RevocationCode;
 
     /// <summary>
     /// account_name
@@ -100,7 +100,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? AccountName => string.IsNullOrEmpty(SteamData) ? null : JsonNode.Parse(SteamData)["account_name"]?.ToString();
+    public string? AccountName => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.AccountName;
 
     /// <summary>
     /// steamid64
@@ -113,7 +113,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? SteamId64 => string.IsNullOrEmpty(SteamData) ? null : JsonNode.Parse(SteamData)["steamid"]?.ToString();
+    public string? SteamId64 => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.SteamId;
 
     /// <summary>
     /// JSON session data
@@ -353,7 +353,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         {
             httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
             httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+            //httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent.Default);
             httpClient.Timeout = new TimeSpan(0, 0, 45);
             httpClient.DefaultRequestHeaders.ExpectContinue = false;
             if (headers != null)
@@ -421,7 +422,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             var data = new NameValueCollection();
             var cookies = state.Cookies ??= new CookieContainer();
             string response;
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, TypeInfoResolver = SteamJsonContext.Default };
+            var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
 
             if (string.IsNullOrEmpty(state.OAuthToken) == true)
             {
@@ -557,13 +558,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 }
 
                 // get the OAuth token - is stringified json
-                loginresponse.OAuth.ThrowIsNull();
                 //loginresponse.Oauth.Steamid.ThrowIsNull();
-                var oauthjson = JsonNode.Parse(loginresponse.OAuth);
-                state.OAuthToken = oauthjson["oauth_token"].ToString();
-                if (oauthjson["steamid"] != null)
+                var oauthjson = JsonSerializer.Deserialize<SteamDoLoginOauthJsonStruct>(loginresponse.OAuth, options);
+                oauthjson.ThrowIsNull();
+                state.OAuthToken = oauthjson.OAuthToken;
+                if (oauthjson.SteamId != string.Empty)
                 {
-                    state.SteamId = oauthjson["steamid"].ToString();
+                    state.SteamId = oauthjson.SteamId;
                 }
             }
 
@@ -754,7 +755,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         try
         {
             var response = await RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, TypeInfoResolver = SteamJsonContext.Default };
+            var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
             var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
 
             // get servertime in ms

@@ -3,17 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static WinAuth.SteamClient;
 
 namespace WinAuth
 {
     [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
     [JsonSerializable(typeof(SteamGetRsaKeyJsonStruct))]
     [JsonSerializable(typeof(SteamDoLoginJsonStruct))]
+    [JsonSerializable(typeof(SteamDoLoginOauthJsonStruct))]
     [JsonSerializable(typeof(SteamDoLoginHasPhoneJsonStruct))]
     [JsonSerializable(typeof(SteamDoLoginTfaJsonStruct))]
     [JsonSerializable(typeof(SteamDoLoginFinalizeJsonStruct))]
     [JsonSerializable(typeof(SteamSyncStruct))]
-    internal partial class SteamJsonContext : JsonSerializerContext
+    [JsonSerializable(typeof(SteamSessionDataStruct))]
+    [JsonSerializable(typeof(SteamRefreshJsonStruct))]
+    [JsonSerializable(typeof(SteamGetConfirmationJsonStruct))]
+    public partial class SteamJsonContext : JsonSerializerContext
     {
     }
 }

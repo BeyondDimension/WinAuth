@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WinAuth
 {
-    sealed class SteamDoLoginJsonStruct
+    public sealed class SteamDoLoginJsonStruct
     {
         [JsonPropertyName("success")]
         public bool Success { get; set; }
@@ -42,7 +42,7 @@ namespace WinAuth
         public string Message { get; set; } = string.Empty;
     }
 
-    sealed class SteamDoLoginOauthJsonStruct
+    public sealed class SteamDoLoginOauthJsonStruct
     {
         [JsonPropertyName("oauth_token")]
         public string OAuthToken { get; set; } = string.Empty;
@@ -63,7 +63,7 @@ namespace WinAuth
         public string WebCookie { get; set; } = string.Empty;
     }
 
-    sealed class SteamDoLoginHasPhoneJsonStruct
+    public sealed class SteamDoLoginHasPhoneJsonStruct
     {
         [JsonPropertyName("has_phone")]
         public bool HasPhone { get; set; }
@@ -78,13 +78,13 @@ namespace WinAuth
         public int PhoneTimeMinutesOff { get; set; }
     }
 
-    sealed class SteamDoLoginTfaJsonStruct
+    public sealed class SteamDoLoginTfaJsonStruct
     {
         [JsonPropertyName("response")]
         public SteamDoLoginSteamDataJsonStruct Response { get; set; }
     }
 
-    sealed class SteamDoLoginSteamDataJsonStruct
+    public sealed class SteamDoLoginSteamDataJsonStruct
     {
         [JsonPropertyName("status")]
         public int Status { get; set; }
@@ -128,13 +128,13 @@ namespace WinAuth
         public string PhoneNumberHint { get; set; } = string.Empty;
     }
 
-    sealed class SteamDoLoginFinalizeJsonStruct
+    public sealed class SteamDoLoginFinalizeJsonStruct
     {
         [JsonPropertyName("response")]
         public SteamDoLoginFinalizeResponseJsonStruct Response { get; set; }
     }
 
-    sealed class SteamDoLoginFinalizeResponseJsonStruct
+    public sealed class SteamDoLoginFinalizeResponseJsonStruct
     {
         [JsonPropertyName("status")]
         public int Status { get; set; }

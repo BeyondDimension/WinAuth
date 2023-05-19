@@ -24,6 +24,7 @@ using ReactiveUI;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
 using static WinAuth.SteamAuthenticator;
 using static WinAuth.SteamClient.Utils;
+using Newtonsoft.Json.Linq;
 
 namespace WinAuth;
 
@@ -34,38 +35,41 @@ public partial class SteamClient : IDisposable
 {
     internal static class Utils
     {
-        public static string SelectTokenValueNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
-        {
-            var valueToken = token;
-            //临时修复NJ转SJ的访问子节点格式问题
-            var nodes = path.Split('.');
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                valueToken = valueToken[nodes[i]];
-            }
+        #region 弃用方法
+        //public static string SelectTokenValueNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
+        //{
+        //    var valueToken = token;
+        //    //临时修复NJ转SJ的访问子节点格式问题
+        //    var nodes = path.Split('.');
+        //    for (int i = 0; i < nodes.Length; i++)
+        //    {
+        //        valueToken = valueToken[nodes[i]];
+        //    }
 
-            if (valueToken != null)
-            {
-                var value = valueToken.GetValue<string>();
-                if (value != null)
-                {
-                    return value;
-                }
-            }
-            getWinAuthException ??= GetWinAuthException;
-            throw getWinAuthException(response, msg ?? "SelectTokenValueNotNull", new ArgumentNullException(path));
-        }
+        //    if (valueToken != null)
+        //    {
+        //        var value = valueToken.GetValue<string>();
+        //        if (value != null)
+        //        {
+        //            return value;
+        //        }
+        //    }
+        //    getWinAuthException ??= GetWinAuthException;
+        //    throw getWinAuthException(response, msg ?? "SelectTokenValueNotNull", new ArgumentNullException(path));
+        //}
 
-        public static JsonNode SelectTokenNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
-        {
-            var valueToken = token[path];
-            if (valueToken != null)
-            {
-                return valueToken;
-            }
-            getWinAuthException ??= GetWinAuthException;
-            throw getWinAuthException(response, msg ?? "SelectTokenNotNull", new ArgumentNullException(path));
-        }
+        //public static JsonNode SelectTokenNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
+        //{
+        //    var valueToken = token[path];
+        //    if (valueToken != null)
+        //    {
+        //        return valueToken;
+        //    }
+        //    getWinAuthException ??= GetWinAuthException;
+        //    throw getWinAuthException(response, msg ?? "SelectTokenNotNull", new ArgumentNullException(path));
+        //}
+
+        #endregion
 
         public static WinAuthException GetWinAuthException(string response, string msg, Exception? innerException = null)
         {
@@ -150,17 +154,17 @@ public partial class SteamClient : IDisposable
         /// <summary>
         /// Seconds between polls
         /// </summary>
-        public int Duration;
+        public int Duration { get; set; }
 
         /// <summary>
         /// Action for new Confirmation
         /// </summary>
-        public PollerAction Action;
+        public PollerAction Action { get; set; }
 
         /// <summary>
         /// List of current Confirmations ids
         /// </summary>
-        public List<string>? Ids;
+        public List<string>? Ids { get; set; }
 
         /// <summary>
         /// Create new ConfirmationPoller object
@@ -195,53 +199,43 @@ public partial class SteamClient : IDisposable
             }
         }
 
-        /// <summary>
-        /// Create a new ConfirmationPoller from a JSON string
-        /// </summary>
-        /// <param name="json">JSON string</param>
-        /// <returns>new ConfirmationPoller or null</returns>
-        public static ConfirmationPoller? FromJSON(string json)
-        {
-            if (string.IsNullOrEmpty(json) == true || json == "null")
-            {
-                return null;
-            }
-            var poller = FromJSON(JsonNode.Parse(json));
-            return poller?.Duration != 0 ? poller : null;
-        }
+        #region 弃用方法
+        ///// <summary>
+        ///// Create a new ConfirmationPoller from a JSON string
+        ///// </summary>
+        ///// <param name="json">JSON string</param>
+        ///// <returns>new ConfirmationPoller or null</returns>
+        //public static ConfirmationPoller? FromJSON(string json)
+        //{
+        //    if (string.IsNullOrEmpty(json) == true || json == "null")
+        //    {
+        //        return null;
+        //    }
+        //    var poller = FromJSON(JsonSerializer.Deserialize(json, SteamJsonContext.Default.ConfirmationPoller));
+        //    return poller?.Duration != 0 ? poller : null;
+        //}
 
-        /// <summary>
-        /// Create a new ConfirmationPoller from a JToken
-        /// </summary>
-        /// <param name="tokens">existing JKToken</param>
-        /// <returns></returns>
-        public static ConfirmationPoller? FromJSON(JsonNode? tokens)
-        {
-            if (tokens == null)
-            {
-                return null;
-            }
+        ///// <summary>
+        ///// Create a new ConfirmationPoller from a JToken
+        ///// </summary>
+        ///// <param name="tokens">existing JKToken</param>
+        ///// <returns></returns>
+        //public static ConfirmationPoller? FromJSON(ConfirmationPoller? tokens)
+        //{
+        //    if (tokens == null)
+        //    {
+        //        return null;
+        //    }
 
-            var poller = new ConfirmationPoller();
+        //    var poller = new ConfirmationPoller();
 
-            var token = tokens["duration"];
-            if (token != null)
-            {
-                poller.Duration = token.GetValue<int>();
-            }
-            token = tokens["action"];
-            if (token != null)
-            {
-                poller.Action = (PollerAction)token.GetValue<int>();
-            }
-            token = tokens["ids"];
-            if (token != null)
-            {
-                poller.Ids = JsonSerializer.Deserialize<List<string>>(token);
-            }
+        //    poller.Duration = tokens.Duration;
+        //    poller.Action = tokens.Action;
+        //    poller.Ids = tokens.Ids;
 
-            return poller.Duration != 0 ? poller : null;
-        }
+        //    return poller.Duration != 0 ? poller : null;
+        //}
+        #endregion
     }
 
     /// <summary>
@@ -394,37 +388,32 @@ public partial class SteamClient : IDisposable
         /// <param name="json"></param>
         void FromJson(string json)
         {
-            var tokens = JsonNode.Parse(json);
-            var token = tokens["steamid"];
-            if (token != null)
-                SteamId = token.ToString();
-            token = tokens["cookies"];
-            if (token != null)
+            var sessiondata = JsonSerializer.Deserialize(json, SteamJsonContext.Default.SteamSessionDataStruct);
+            sessiondata.ThrowIsNull();
+            if (sessiondata.SteamId != string.Empty)
+                SteamId = sessiondata.SteamId;
+            if (sessiondata.Cookies != string.Empty)
             {
                 Cookies = new CookieContainer();
 
                 // Net3.5 has a bug that prepends "." to domain, e.g. ".steamcommunity.com"
                 var uri = new Uri(COMMUNITY_BASE + "/");
-                var tokenValue = token.ToString();
-                tokenValue.ThrowIsNull();
-                var match = SteamSessionCookiesRegex().Match(tokenValue);
+                var match = SteamSessionCookiesRegex().Match(sessiondata.Cookies);
                 while (match.Success == true)
                 {
                     Cookies.Add(uri, new Cookie(match.Groups[1].Value.Trim(), match.Groups[2].Value.Trim()));
                     match = match.NextMatch();
                 }
             }
-            token = tokens["oauthtoken"];
-            if (token != null)
-                OAuthToken = token.ToString();
+            if (sessiondata.OAuthToken != string.Empty)
+                OAuthToken = sessiondata.OAuthToken;
             //token = tokens.SelectToken("umqid");
             //if (token != null)
             //{
             //	this.UmqId = token.Value<string>();
             //}
-            token = tokens["confs"];
-            if (token != null)
-                Confirmations = ConfirmationPoller.FromJSON(token);
+            if (sessiondata.Confirmations != null)
+                Confirmations = sessiondata.Confirmations;
         }
 
         [GeneratedRegex("([^=]+)=([^;]*);?", RegexOptions.Singleline)]
@@ -606,8 +595,9 @@ public partial class SteamClient : IDisposable
             // get the user's RSA key
             data.Add("username", username);
             response = GetString(COMMUNITY_BASE + "/mobilelogin/getrsakey", "POST", data);
-            var rsaresponse = JsonNode.Parse(response);
-            if (rsaresponse["success"]?.GetValue<bool>() != true)
+            var rsaresponse = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetRsaKeyJsonStruct);
+            rsaresponse.ThrowIsNull();
+            if (rsaresponse.Success != true)
             {
                 InvalidLogin = true;
                 Error = "Unknown username";
@@ -621,8 +611,8 @@ public partial class SteamClient : IDisposable
             {
                 var passwordBytes = Encoding.ASCII.GetBytes(password);
                 var p = rsa.ExportParameters(false);
-                p.Exponent = StringToByteArray(SelectTokenValueNotNull(response, rsaresponse, "publickey_exp"));
-                p.Modulus = StringToByteArray(SelectTokenValueNotNull(response, rsaresponse, "publickey_mod"));
+                p.Exponent = StringToByteArray(rsaresponse.PublicKeyExp);
+                p.Modulus = StringToByteArray(rsaresponse.PublicKeyMod);
                 rsa.ImportParameters(p);
                 byte[] encryptedPassword = rsa.Encrypt(passwordBytes, RSAEncryptionPadding.Pkcs1);
                 encryptedPassword64 = Convert.ToBase64String(encryptedPassword);
@@ -639,7 +629,7 @@ public partial class SteamClient : IDisposable
                 { "captchagid", string.IsNullOrEmpty(captchaId) == false ? captchaId : "-1" },
                 { "captcha_text", string.IsNullOrEmpty(captchaText) == false ? captchaText : "enter above characters" },
                 //data.Add("emailsteamid", (string.IsNullOrEmpty(emailcode) == false ? this.SteamId ?? string.Empty : string.Empty));
-                { "rsatimestamp", SelectTokenValueNotNull(response, rsaresponse, "timestamp") },
+                { "rsatimestamp", rsaresponse.TimeStamp },
                 { "remember_login", "false" },
                 { "oauth_client_id", "DE45CD61" },
                 { "oauth_scope", "read_profile write_profile read_client write_client" },
@@ -647,15 +637,17 @@ public partial class SteamClient : IDisposable
             };
             const string url_mobilelogin_dologin = "/mobilelogin/dologin";
             response = GetString(COMMUNITY_BASE + url_mobilelogin_dologin, "POST", data);
-            var loginresponse = JsonSerializer.Deserialize<Dictionary<string, object>>(response);
-            if (loginresponse == null)
-            {
-                throw GetWinAuthException(response, url_mobilelogin_dologin, new ArgumentNullException(nameof(loginresponse)));
-            }
+            var loginresponse = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamDoLoginJsonStruct);
+            loginresponse.ThrowIsNull();
 
-            if (loginresponse.ContainsKey("emailsteamid") == true)
+            //if (loginresponse == null)
+            //{
+            //    throw GetWinAuthException(response, url_mobilelogin_dologin, new ArgumentNullException(nameof(loginresponse)));
+            //}
+
+            if (loginresponse.EmailSteamId != string.Empty)
             {
-                Session.SteamId = loginresponse["emailsteamid"] as string;
+                Session.SteamId = loginresponse.EmailSteamId;
             }
 
             InvalidLogin = false;
@@ -666,54 +658,48 @@ public partial class SteamClient : IDisposable
             EmailDomain = null;
             Requires2FA = false;
 
-            if (loginresponse.ContainsKey("login_complete") == false || (bool)loginresponse["login_complete"] == false || loginresponse.ContainsKey("oauth") == false)
+            if (loginresponse.LoginComplete == false || loginresponse.OAuth == null)
             {
                 InvalidLogin = true;
 
                 // require captcha
-                if (loginresponse.ContainsKey("captcha_needed") == true && (bool)loginresponse["captcha_needed"] == true)
+                if (loginresponse.CaptchaNeeded == true)
                 {
                     RequiresCaptcha = true;
-                    CaptchaId = (string)loginresponse["captcha_gid"];
+                    CaptchaId = loginresponse.CaptchaGId;
                     CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + CaptchaId;
                 }
 
                 // require email auth
-                if (loginresponse.ContainsKey("emailauth_needed") == true && (bool)loginresponse["emailauth_needed"] == true)
+                if (loginresponse.EmailAuthNeeded == true)
                 {
-                    if (loginresponse.ContainsKey("emaildomain") == true)
+                    if (loginresponse.EmailDomain != string.Empty)
                     {
-                        var emaildomain = (string)loginresponse["emaildomain"];
-                        if (string.IsNullOrEmpty(emaildomain) == false)
-                        {
-                            EmailDomain = emaildomain;
-                        }
+                        EmailDomain = loginresponse.EmailDomain;
                     }
                     RequiresEmailAuth = true;
                 }
 
                 // require email auth
-                if (loginresponse.ContainsKey("requires_twofactor") == true && (bool)loginresponse["requires_twofactor"] == true)
+                if (loginresponse.RequiresTwoFactor == true)
                 {
                     Requires2FA = true;
                 }
 
-                if (loginresponse.ContainsKey("message") == true)
+                if (loginresponse.Message != string.Empty)
                 {
-                    Error = (string)loginresponse["message"];
+                    Error = loginresponse.Message;
                 }
 
                 return false;
             }
 
             // get the OAuth token
-            string oauth = (string)loginresponse["oauth"];
-            var oauthjson = JsonNode.Parse(oauth);
-            Session.OAuthToken = SelectTokenValueNotNull(oauth, oauthjson, "oauth_token");
-            var steamid = oauthjson["steamid"];
-            if (steamid != null)
+            var oauthjson = JsonSerializer.Deserialize(loginresponse.OAuth, SteamJsonContext.Default.SteamDoLoginOauthJsonStruct);
+            Session.OAuthToken = oauthjson.OAuthToken;
+            if (oauthjson.SteamId != string.Empty)
             {
-                Session.SteamId = steamid.ToString();
+                Session.SteamId = oauthjson.SteamId;
             }
 
             //// perform UMQ login
@@ -777,22 +763,20 @@ public partial class SteamClient : IDisposable
                 return false;
             }
 
-            var json = JsonNode.Parse(response);
-            var token = json["response"]["token"];
-            if (token == null)
+            var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamRefreshJsonStruct);
+            jsonobj.ThrowIsNull();
+            if (jsonobj.Token == string.Empty)
             {
                 return false;
             }
-
             var cookieuri = new Uri(COMMUNITY_BASE + "/");
-            Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + token.ToString()));
+            Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + jsonobj.Token));
 
-            token = json["response"]["token_secure"];
-            if (token == null)
+            if (jsonobj.TokenSecure == string.Empty)
             {
                 return false;
             }
-            Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + token.ToString()));
+            Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + jsonobj.TokenSecure));
 
             // perform UMQ login
             //response = GetString(API_LOGON, "POST", data);
@@ -1026,8 +1010,9 @@ public partial class SteamClient : IDisposable
     {
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
-        var jids = JsonNode.Parse(Authenticator.SteamData.ThrowIsNull(nameof(Authenticator.SteamData)))["identity_secret"];
-        var ids = jids?.ToString() ?? string.Empty;
+        Authenticator.SteamData.ThrowIsNull();
+        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.IdentitySecret;
+        ids.ThrowIsNull();
 
         var timehash = CreateTimeHash(servertime, "conf", ids);
 
@@ -1137,16 +1122,16 @@ public partial class SteamClient : IDisposable
         {
             throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
         }
-        if (JsonNode.Parse(response)["success"]?.GetValue<bool>() == true)
+        var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
+        jsonobj.ThrowIsNull();
+        if (jsonobj.Success == true)
         {
-            var html = JsonNode.Parse(response)["html"]?.ToString();
-
             ConfirmationsHtml.ThrowIsNull();
             Regex detailsRegex = ConfirmationDetailsRegex();
             var match = detailsRegex.Match(ConfirmationsHtml);
             if (match.Success == true)
             {
-                return match.Groups[1].Value + html + match.Groups[2].Value;
+                return match.Groups[1].Value + jsonobj.Html + match.Groups[2].Value;
             }
         }
 
@@ -1170,8 +1155,9 @@ public partial class SteamClient : IDisposable
 
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
-        var jids = JsonNode.Parse(Authenticator.SteamData.ThrowIsNull(nameof(Authenticator.SteamData)))["identity_secret"];
-        var ids = jids?.ToString() ?? string.Empty;
+        Authenticator.SteamData.ThrowIsNull();
+        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.IdentitySecret;
+        ids.ThrowIsNull();
 
         var timehash = CreateTimeHash(servertime, "conf", ids);
 
@@ -1197,8 +1183,9 @@ public partial class SteamClient : IDisposable
                 return false;
             }
 
-            var success = JsonNode.Parse(response)["success"];
-            if (success == null || success.GetValue<bool>() == false)
+            var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
+
+            if (jsonobj == null || jsonobj.Success == false)
             {
                 Error = "Failed";
                 return false;
@@ -1359,6 +1346,7 @@ public partial class SteamClient : IDisposable
             httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
             httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+            //httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
             httpClient.Timeout = new TimeSpan(0, 0, 45);
             httpClient.DefaultRequestHeaders.ExpectContinue = false;
             if (headers != null)
