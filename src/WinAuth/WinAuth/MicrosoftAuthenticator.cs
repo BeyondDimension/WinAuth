@@ -35,5 +35,5 @@ public sealed class MicrosoftAuthenticator : GoogleAuthenticator
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public override GamePlatform Platform => GamePlatform.Microsoft;
+    public override AuthenticatorPlatform Platform => AuthenticatorPlatform.Microsoft;
 }

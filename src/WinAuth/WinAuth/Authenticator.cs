@@ -18,16 +18,15 @@
 
 #pragma warning disable SA1313 // Parameter names should begin with lower-case letter
 
-using WinAuth;
-using System.Xml;
-using System.Diagnostics.CodeAnalysis;
+using BD.Common.Services;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Paddings;
 using Org.BouncyCastle.Crypto.Parameters;
-using BD.Common.Services;
+using System.Xml;
+using WinAuth;
 using static BD.WTTS.Models.Abstractions.IAuthenticatorValueDTO;
 
 // ReSharper disable once CheckNamespace
@@ -66,7 +65,7 @@ partial class AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public abstract GamePlatform Platform { get; }
+    public abstract AuthenticatorPlatform Platform { get; }
 
     [IgnoreDataMember]
     [MPIgnore]

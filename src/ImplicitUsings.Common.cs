@@ -1,8 +1,5 @@
 // C# 10 定义全局 using
 
-global using BD.Common;
-global using BD.Common.Columns;
-global using BD.Common.Enums;
 #if _IMPORT_COMMON_CONTROLLERS__
 global using BD.Common.Controllers;
 global using BD.Common.Controllers.Abstractions;

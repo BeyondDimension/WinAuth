@@ -42,7 +42,7 @@ public sealed class HOTPAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public override GamePlatform Platform => default;
+    public override AuthenticatorPlatform Platform => default;
 
     /// <summary>
     /// Counter for authenticator input

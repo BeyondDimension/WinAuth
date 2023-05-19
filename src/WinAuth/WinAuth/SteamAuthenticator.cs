@@ -16,14 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-using System.Web;
-using System.Collections.Specialized;
-using System.Runtime.Serialization.Formatters;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
+using System.Collections.Specialized;
+using System.Runtime.Serialization.Formatters;
+using System.Web;
 using static WinAuth.SteamClient.Utils;
 
 namespace WinAuth;
@@ -59,7 +57,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public override GamePlatform Platform => GamePlatform.Steam;
+    public override AuthenticatorPlatform Platform => AuthenticatorPlatform.Steam;
 
     /// <summary>
     /// Returned serial number of authenticator

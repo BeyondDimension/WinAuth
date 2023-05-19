@@ -11,7 +11,7 @@ partial class AuthenticatorDTO
     public sealed class LightweightExportDTO
     {
         [MPKey(0)]
-        public GamePlatform Platform { get; set; }
+        public AuthenticatorPlatform Platform { get; set; }
 
         [MPKey(1)]
         public string? Issuer { get; set; }

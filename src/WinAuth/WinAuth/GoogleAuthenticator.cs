@@ -43,7 +43,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public override GamePlatform Platform => GamePlatform.Google;
+    public override AuthenticatorPlatform Platform => AuthenticatorPlatform.Google;
 
     /// <summary>
     /// Number of minutes to ignore syncing if network error

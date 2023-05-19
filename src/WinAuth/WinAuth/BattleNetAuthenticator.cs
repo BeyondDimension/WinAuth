@@ -61,7 +61,7 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public override GamePlatform Platform => GamePlatform.BattleNet;
+    public override AuthenticatorPlatform Platform => AuthenticatorPlatform.BattleNet;
 
     public string? Serial { get; set; }
 

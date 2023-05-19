@@ -1,5 +1,5 @@
-using WinAuth;
 using System.Web;
+using WinAuth;
 using static BD.WTTS.Models.AuthenticatorDTO;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
 
@@ -39,12 +39,12 @@ public static partial class AuthenticatorDTOExtensions
 
         if (@this.Value is BattleNetAuthenticator battleNetAuthenticator)
         {
-            dto.Platform = GamePlatform.BattleNet;
+            dto.Platform = AuthenticatorPlatform.BattleNet;
             dto.Serial = battleNetAuthenticator.Serial;
         }
         else if (@this.Value is SteamAuthenticator steamAuthenticator)
         {
-            dto.Platform = GamePlatform.Steam;
+            dto.Platform = AuthenticatorPlatform.Steam;
             if (!compat)
             {
                 dto.DeviceId = steamAuthenticator.DeviceId;
@@ -53,7 +53,7 @@ public static partial class AuthenticatorDTOExtensions
         }
         else if (@this.Value is HOTPAuthenticator hOTPAuthenticator)
         {
-            dto.Platform = GamePlatform.HOTP;
+            dto.Platform = AuthenticatorPlatform.HOTP;
             dto.Counter = hOTPAuthenticator.Counter;
         }
 
@@ -104,11 +104,11 @@ public static partial class AuthenticatorDTOExtensions
             extraparams += "&algorithm=" + @this.HMACType.ToString();
         }
 
-        if (@this.Platform == GamePlatform.BattleNet)
+        if (@this.Platform == AuthenticatorPlatform.BattleNet)
         {
             extraparams += "&serial=" + HttpUtility.UrlEncode(@this.Serial?.Replace("-", ""));
         }
-        else if (@this.Platform == GamePlatform.Steam)
+        else if (@this.Platform == AuthenticatorPlatform.Steam)
         {
             if (!compat)
             {
@@ -116,7 +116,7 @@ public static partial class AuthenticatorDTOExtensions
                 extraparams += "&data=" + HttpUtility.UrlEncode(@this.SteamData);
             }
         }
-        else if (@this.Platform == GamePlatform.HOTP)
+        else if (@this.Platform == AuthenticatorPlatform.HOTP)
         {
             type = "hotp";
             extraparams += "&counter=" + @this.Counter;

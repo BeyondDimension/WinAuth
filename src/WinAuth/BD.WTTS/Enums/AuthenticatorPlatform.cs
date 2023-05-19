@@ -1,7 +1,7 @@
 // ReSharper disable once CheckNamespace
 namespace BD.WTTS.Enums;
 
-public enum GamePlatform : byte
+public enum AuthenticatorPlatform : byte
 {
     Steam = 1,
 

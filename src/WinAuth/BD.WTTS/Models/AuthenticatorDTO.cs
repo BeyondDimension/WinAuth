@@ -12,7 +12,7 @@ public sealed partial class AuthenticatorDTO : IAuthenticatorDTO
     public string Name { get; set; } = string.Empty;
 
     [MPIgnore, N_JsonIgnore, S_JsonIgnore]
-    public GamePlatform Platform => Value == null ? default : Value.Platform;
+    public AuthenticatorPlatform Platform => Value == null ? default : Value.Platform;
 
     public Guid? ServerId { get; set; }
 

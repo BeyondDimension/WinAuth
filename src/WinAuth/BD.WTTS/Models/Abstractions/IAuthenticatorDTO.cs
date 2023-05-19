@@ -10,7 +10,7 @@ public interface IAuthenticatorDTO : IOrderAuthenticator, IExplicitHasValue
 
     string Name { get; set; }
 
-    GamePlatform Platform { get; }
+    AuthenticatorPlatform Platform { get; }
 
     Guid? ServerId { get; set; }
 

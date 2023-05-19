@@ -6,13 +6,13 @@ namespace BD.WTTS.Models.Abstractions;
 /// <summary>
 /// 身份验证器(游戏平台令牌)数据值可传输模型
 /// </summary>
-[MPUnion((int)GamePlatform.BattleNet, typeof(BattleNetAuthenticator))]
-[MPUnion((int)GamePlatform.Google, typeof(GoogleAuthenticator))]
-[MPUnion((int)GamePlatform.Microsoft, typeof(MicrosoftAuthenticator))]
-[MPUnion((int)GamePlatform.Steam, typeof(SteamAuthenticator))]
+[MPUnion((int)AuthenticatorPlatform.BattleNet, typeof(BattleNetAuthenticator))]
+[MPUnion((int)AuthenticatorPlatform.Google, typeof(GoogleAuthenticator))]
+[MPUnion((int)AuthenticatorPlatform.Microsoft, typeof(MicrosoftAuthenticator))]
+[MPUnion((int)AuthenticatorPlatform.Steam, typeof(SteamAuthenticator))]
 public partial interface IAuthenticatorValueDTO : IExplicitHasValue
 {
-    GamePlatform Platform { get; }
+    AuthenticatorPlatform Platform { get; }
 
     /// <summary>
     /// 本地机器和服务器的时间差（毫秒 ms）
