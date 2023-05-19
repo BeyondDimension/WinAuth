@@ -12,14 +12,14 @@ public class Tests
 {
     IServiceProvider service;
 
-    IRandomGetUserAgentService RandomUserAgentService => service.GetRequiredService<IRandomGetUserAgentService>();
+    //IRandomGetUserAgentService RandomUserAgentService => service.GetRequiredService<IRandomGetUserAgentService>();
 
     [SetUp]
     public void Setup()
     {
         var services = new ServiceCollection();
         services.AddLogging(l => l.AddProvider(NullLoggerProvider.Instance));
-        services.AddSingleton<IRandomGetUserAgentService, ConsoleRandomGetUserAgentServiceImpl>();
+        //services.AddSingleton<IRandomGetUserAgentService, ConsoleRandomGetUserAgentServiceImpl>();
         service = services.BuildServiceProvider();
         Ioc.ConfigureServices(service);
     }
@@ -64,7 +64,7 @@ public class Tests
         //SteamClient client = new SteamClient(steamAuthenticator, session);
         //var success = client.Login("hhhh", "hhh");
         //TestContext.WriteLine($"{success}");
-        RandomUserAgentService.GetUserAgent();
+        //RandomUserAgentService.GetUserAgent();
     }
 
 }
