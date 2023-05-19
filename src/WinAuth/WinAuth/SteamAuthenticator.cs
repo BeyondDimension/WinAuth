@@ -338,74 +338,74 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         //});
         // call the server
         //HttpWebRequest request = GeneralHttpClientFactory(url);
-        HttpClientHandler handler = new HttpClientHandler();
-        handler.AllowAutoRedirect = true;
-        //抓包分析需注释
-        handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-        handler.MaxAutomaticRedirections = 1000;
+        HttpClientHandler handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = true,
+            //抓包分析需注释
+            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+            MaxAutomaticRedirections = 1000,
+        };
         if (cookies != null)
         {
             handler.UseCookies = true;
             handler.CookieContainer = cookies;
         }
 
-        using (HttpClient httpClient = new HttpClient(handler))
+        using HttpClient httpClient = new HttpClient(handler);
+        httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+        httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+        //httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+        httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent.Default);
+        httpClient.Timeout = new TimeSpan(0, 0, 45);
+        httpClient.DefaultRequestHeaders.ExpectContinue = false;
+        if (headers != null)
         {
-            httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
-            httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-            //httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
-            httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent.Default);
-            httpClient.Timeout = new TimeSpan(0, 0, 45);
-            httpClient.DefaultRequestHeaders.ExpectContinue = false;
-            if (headers != null)
+            for (int i = 0; i < headers.Count; i++)
             {
-                for (int i = 0; i < headers.Count; i++)
-                {
-                    httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i], headers.Get(i));
-                }
+                httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i].ThrowIsNull(), headers.Get(i));
             }
-            if (timeout != 0)
+        }
+        if (timeout != 0)
+        {
+            httpClient.Timeout = new TimeSpan(0, 0, 0, 0, timeout);
+        }
+
+        try
+        {
+            HttpResponseMessage responseMessage;
+
+            string resultstring;
+            if (string.Compare(method, "POST", true) == 0)
             {
-                httpClient.Timeout = new TimeSpan(0, 0, 0, 0, timeout);
+                HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
+                //content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded", "charset=UTF-8");
+                content.Headers.ContentLength = query.Length;
+                responseMessage = await httpClient.PostAsync(url, content);
             }
-
-            try
+            else
             {
-                HttpResponseMessage responseMessage;
-
-                string resultstring;
-                if (string.Compare(method, "POST", true) == 0)
-                {
-                    HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
-                    //content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded", "charset=UTF-8");
-                    content.Headers.ContentLength = query.Length;
-                    responseMessage = await httpClient.PostAsync(url, content);
-                }
-                else
-                {
-                    responseMessage = await httpClient.GetAsync(url);
-                }
-
-                LogRequest(method, url, cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
-
-                // OK?
-                if (responseMessage.StatusCode != HttpStatusCode.OK)
-                    throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
-
-                resultstring = await responseMessage.Content.ReadAsStringAsync();
-
-                LogRequest(method, url, cookies, data, resultstring);
-                return resultstring;
+                responseMessage = await httpClient.GetAsync(url);
             }
-            catch (Exception ex)
-            {
-                LogException(method, url, cookies, data, ex);
 
-                if (ex is WebException exception && exception.Response != null && ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
-                    throw new WinAuthUnauthorisedRequestException(ex);
+            LogRequest(method, url, cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
 
-                throw new WinAuthInvalidRequestException(ex.Message, ex);
-            }
+            // OK?
+            if (responseMessage.StatusCode != HttpStatusCode.OK)
+                throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
+
+            resultstring = await responseMessage.Content.ReadAsStringAsync();
+
+            LogRequest(method, url, cookies, data, resultstring);
+            return resultstring;
+        }
+        catch (Exception ex)
+        {
+            LogException(method, url, cookies, data, ex);
+
+            if (ex is WebException exception && exception.Response != null && ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
+                throw new WinAuthUnauthorisedRequestException(ex);
+
+            throw new WinAuthInvalidRequestException(ex.Message, ex);
         }
     }
 
@@ -464,7 +464,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 rsaresponse.PublicKeyMod.ThrowIsNull();
                 rsaresponse.TimeStamp.ThrowIsNull();
                 // encrypt password with RSA key
-                RNGCryptoServiceProvider random = new();
+                //RNGCryptoServiceProvider random = new();
                 byte[] encryptedPassword;
                 using (var rsa = new RSACryptoServiceProvider())
                 {
@@ -612,6 +612,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 response = await RequestAsync(WEBAPI_BASE + url_ITwoFactorService_AddAuthenticator_v0001, "POST", data);
                 var tfaresponse = JsonSerializer.Deserialize<SteamDoLoginTfaJsonStruct>(response, options);
                 tfaresponse.ThrowIsNull();
+                if (tfaresponse.Response == null)
+                {
+                    state.OAuthToken = null;
+                    state.Cookies = null;
+                    state.Error = Strings.error_invalid_response_from_steam_;
+                    return false;
+                }
                 if (!response.Contains("status", StringComparison.CurrentCulture) && tfaresponse.Response.Status == 84)
                 {
                     // invalid response
@@ -641,7 +648,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
                 // add the steamid into the data
                 var steamdata = tfaresponse.Response;
-                if (steamdata.SteamId == string.Empty)
+                if (steamdata.SteamId == string.Empty && state.SteamId != null)
                     steamdata.SteamId = state.SteamId;
                 if (steamdata.SteamGuardScheme == string.Empty)
                     steamdata.SteamGuardScheme = "2";
@@ -672,6 +679,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 response = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/FinalizeAddAuthenticator/v0001", "POST", data);
                 var finalizeresponse = JsonSerializer.Deserialize<SteamDoLoginFinalizeJsonStruct>(response, options);
                 finalizeresponse.ThrowIsNull();
+                if (finalizeresponse.Response == null)
+                {
+                    state.Error = Strings.error_invalid_response_from_steam_;
+                    return false;
+                }
                 if (response.IndexOf("status") != -1 && finalizeresponse.Response.Status == INVALID_ACTIVATION_CODE)
                 {
                     state.Error = Strings.error_invalid_activation_code;
@@ -757,6 +769,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             var response = await RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
             var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
             var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
+            json.ThrowIsNull();
+            json.Response.ThrowIsNull();
 
             // get servertime in ms
             long servertime = long.Parse(json.Response.ServerTime) * 1000;

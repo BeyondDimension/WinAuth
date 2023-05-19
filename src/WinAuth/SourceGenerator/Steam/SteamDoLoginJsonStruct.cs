@@ -12,7 +12,7 @@ namespace WinAuth
         public bool Success { get; set; }
 
         [JsonPropertyName("redirect_uri")]
-        public string RedirectUri { get; set; }
+        public string RedirectUri { get; set; } = string.Empty;
 
         [JsonPropertyName("emailsteamid")]
         public string EmailSteamId { get; set; } = string.Empty;
@@ -81,7 +81,7 @@ namespace WinAuth
     public sealed class SteamDoLoginTfaJsonStruct
     {
         [JsonPropertyName("response")]
-        public SteamDoLoginSteamDataJsonStruct Response { get; set; }
+        public SteamDoLoginSteamDataJsonStruct? Response { get; set; }
     }
 
     public sealed class SteamDoLoginSteamDataJsonStruct
@@ -131,7 +131,7 @@ namespace WinAuth
     public sealed class SteamDoLoginFinalizeJsonStruct
     {
         [JsonPropertyName("response")]
-        public SteamDoLoginFinalizeResponseJsonStruct Response { get; set; }
+        public SteamDoLoginFinalizeResponseJsonStruct? Response { get; set; }
     }
 
     public sealed class SteamDoLoginFinalizeResponseJsonStruct

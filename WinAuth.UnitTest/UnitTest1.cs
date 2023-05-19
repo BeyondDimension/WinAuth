@@ -12,22 +12,28 @@ namespace WinAuth.UnitTest
     {
         IServiceProvider service;
 
+        IRandomGetUserAgentService RandomUserAgentService => service.GetRequiredService<IRandomGetUserAgentService>();
+
         [SetUp]
         public void Setup()
         {
             var services = new ServiceCollection();
             services.AddLogging(l => l.AddProvider(NullLoggerProvider.Instance));
+            services.AddSingleton<IRandomGetUserAgentService, ConsoleRandomGetUserAgentServiceImpl>();
             service = services.BuildServiceProvider();
             Ioc.ConfigureServices(service);
         }
 
-        //[Test]
+        [Test]
         public async Task SteamAuthenticatorTest()
         {
-            SteamAuthenticator steamAuthenticator = new SteamAuthenticator();
-            SteamAuthenticator.EnrollState enrollState = new SteamAuthenticator.EnrollState() { Language = "zh-Hans" };
-            enrollState.Username = "hhhh";
-            enrollState.Password = "hhhh";
+            SteamAuthenticator steamAuthenticator = new();
+            SteamAuthenticator.EnrollState enrollState = new()
+            {
+                Language = "zh-Hans",
+                Username = "hhhh",
+                Password = "hhhh"
+            };
             await steamAuthenticator.EnrollAsync(enrollState);
             while (enrollState.RequiresCaptcha || enrollState.RequiresEmailAuth || enrollState.RequiresActivation)
             {
@@ -58,6 +64,7 @@ namespace WinAuth.UnitTest
             //SteamClient client = new SteamClient(steamAuthenticator, session);
             //var success = client.Login("hhhh", "hhh");
             //TestContext.WriteLine($"{success}");
+            RandomUserAgentService.GetUserAgent();
         }
 
     }

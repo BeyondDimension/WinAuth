@@ -9,7 +9,7 @@ namespace WinAuth
     public sealed class SteamSyncStruct
     {
         [JsonPropertyName("response")]
-        public SteamSyncResponseStruct Response { get; set; }
+        public SteamSyncResponseStruct? Response { get; set; }
     }
 
     public sealed class SteamSyncResponseStruct

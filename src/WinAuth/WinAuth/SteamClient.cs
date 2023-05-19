@@ -24,7 +24,6 @@ using ReactiveUI;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
 using static WinAuth.SteamAuthenticator;
 using static WinAuth.SteamClient.Utils;
-using Newtonsoft.Json.Linq;
 
 namespace WinAuth;
 
@@ -585,7 +584,7 @@ public partial class SteamClient : IDisposable
                     { "X-Requested-With", "com.valvesoftware.android.steam.community" },
                 };
 
-                response = GetString(COMMUNITY_BASE + "/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, headers);
+                _ = GetString(COMMUNITY_BASE + "/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, headers);
             }
 
             // Steam strips any non-ascii chars from username and password
@@ -605,7 +604,7 @@ public partial class SteamClient : IDisposable
             }
 
             // encrypt password with RSA key
-            var random = RandomNumberGenerator.Create();
+            //var random RandomNumberGenerator.Create();
             string encryptedPassword64;
             using (var rsa = RSA.Create())
             {
@@ -696,6 +695,7 @@ public partial class SteamClient : IDisposable
 
             // get the OAuth token
             var oauthjson = JsonSerializer.Deserialize(loginresponse.OAuth, SteamJsonContext.Default.SteamDoLoginOauthJsonStruct);
+            oauthjson.ThrowIsNull();
             Session.OAuthToken = oauthjson.OAuthToken;
             if (oauthjson.SteamId != string.Empty)
             {
@@ -1332,11 +1332,13 @@ public partial class SteamClient : IDisposable
             //var isForward = enableForward && TryGetForwardUrl(ref url);
 
             // call the server
-            HttpClientHandler handler = new HttpClientHandler();
-            handler.AllowAutoRedirect = true;
-            //抓包分析需注释
-            handler.AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip;
-            handler.MaxAutomaticRedirections = 1000;
+            HttpClientHandler handler = new HttpClientHandler
+            {
+                AllowAutoRedirect = true,
+                //抓包分析需注释
+                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+                MaxAutomaticRedirections = 1000,
+            };
             if (Session.Cookies != null)
             {
                 handler.UseCookies = true;
@@ -1353,7 +1355,7 @@ public partial class SteamClient : IDisposable
             {
                 for (int i = 0; i < headers.Count; i++)
                 {
-                    httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i], headers.Get(i));
+                    httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i].ThrowIsNull(), headers.Get(i));
                 }
             }
 
