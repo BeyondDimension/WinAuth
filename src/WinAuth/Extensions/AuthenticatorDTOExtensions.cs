@@ -8,12 +8,12 @@ namespace BD.WTTS.Models;
 
 public static partial class AuthenticatorDTOExtensions
 {
-    public static LightweightExportDTO ToLightweightExportDTO(
+    public static AuthenticatorExportDTO ToExport(
         this IAuthenticatorDTO @this,
         bool compat = false)
     {
         @this.Value.ThrowIsNull();
-        LightweightExportDTO dto = new();
+        AuthenticatorExportDTO dto = new();
 
         //Match match;
         var issuer = @this.Value.Issuer;
@@ -77,7 +77,7 @@ public static partial class AuthenticatorDTOExtensions
     /// <param name="this"></param>
     /// <param name="compat"></param>
     /// <returns></returns>
-    public static string ToUrl(this LightweightExportDTO @this, bool compat = false)
+    public static string ToUrl(this AuthenticatorExportDTO @this, bool compat = false)
     {
         string type = "totp";
         string extraparams = string.Empty;
