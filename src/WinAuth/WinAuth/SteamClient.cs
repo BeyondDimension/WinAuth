@@ -1376,6 +1376,10 @@ public partial class SteamClient : IDisposable
                 LogRequest(method, url, Session.Cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
 
                 // OK?
+                if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    return Encoding.UTF8.GetBytes("IP登录请求过于频繁，请稍后重试。");
+                }
                 if (responseMessage.StatusCode == HttpStatusCode.Forbidden)
                 {
                     throw new WinAuthUnauthorisedSteamRequestException(new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage)));

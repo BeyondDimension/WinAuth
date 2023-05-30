@@ -387,7 +387,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
             LogRequest(method, url, cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
 
-            // OK?
+            // 请求是否成功
+            if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                return "IP登录请求过于频繁，请稍后重试。";
+            }
             if (responseMessage.StatusCode != HttpStatusCode.OK)
                 throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
 
