@@ -229,3 +229,14 @@ public sealed class WinAuthUnauthorisedSteamRequestException : WinAuthInvalidSte
     {
     }
 }
+
+/// <summary>
+/// 429请求过于频繁
+/// </summary>
+public sealed class WinAuthSteamToManyRequestException : WinAuthException
+{
+    public WinAuthSteamToManyRequestException(string? msg = null, Exception? ex = null) : base(msg, ex)
+    {
+
+    }
+}

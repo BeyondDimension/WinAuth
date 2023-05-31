@@ -142,6 +142,15 @@ namespace WinAuth {
         }
         
         /// <summary>
+        ///   查找类似 IP登录请求过于频繁，请稍后重试。 的本地化字符串。
+        /// </summary>
+        internal static string error_TooManyRequests {
+            get {
+                return ResourceManager.GetString("error_TooManyRequests", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 请查看账号绑定手机号信息，输入验证码后继续。 的本地化字符串。
         /// </summary>
         internal static string RequiresActivation {

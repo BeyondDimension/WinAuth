@@ -144,6 +144,9 @@
   <data name="error_steamguard_phoneajax_" xml:space="preserve">
     <value>您的 Steam 帐户必须附有支持短信的手机号码, {0}请到 Steam 客户端或 Steam 网站的帐户详细信息添加电话号码。</value>
   </data>
+  <data name="error_TooManyRequests" xml:space="preserve">
+    <value>IP登录请求过于频繁，请稍后重试。</value>
+  </data>
   <data name="RequiresActivation" xml:space="preserve">
     <value>请查看账号绑定手机号信息，输入验证码后继续。</value>
   </data>
