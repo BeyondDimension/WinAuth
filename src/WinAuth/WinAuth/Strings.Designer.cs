@@ -61,6 +61,24 @@ namespace WinAuth {
         }
         
         /// <summary>
+        ///   查找类似 请在输入验证码后再次登录。 的本地化字符串。
+        /// </summary>
+        internal static string CaptchaNeeded {
+            get {
+                return ResourceManager.GetString("CaptchaNeeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 请查看账号绑定邮箱，输入邮件验证码后继续。 的本地化字符串。
+        /// </summary>
+        internal static string EmailAuthNeeded {
+            get {
+                return ResourceManager.GetString("EmailAuthNeeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 无效的激活码 的本地化字符串。
         /// </summary>
         internal static string error_invalid_activation_code {
@@ -88,6 +106,15 @@ namespace WinAuth {
         }
         
         /// <summary>
+        ///   查找类似 来自Steam的无效响应（没有OAuth令牌）。 的本地化字符串。
+        /// </summary>
+        internal static string error_NoOAuth {
+            get {
+                return ResourceManager.GetString("error_NoOAuth", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 激活时出现了问题。Steam 服务器可能存在问题。请稍后再试。 的本地化字符串。
         /// </summary>
         internal static string error_on_activating {
@@ -97,11 +124,29 @@ namespace WinAuth {
         }
         
         /// <summary>
+        ///   查找类似 您所输入的账户名或密码不正确。 的本地化字符串。
+        /// </summary>
+        internal static string error_password {
+            get {
+                return ResourceManager.GetString("error_password", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 您的 Steam 帐户必须附有支持短信的手机号码, {0}请到 Steam 客户端或 Steam 网站的帐户详细信息添加电话号码。 的本地化字符串。
         /// </summary>
         internal static string error_steamguard_phoneajax_ {
             get {
                 return ResourceManager.GetString("error_steamguard_phoneajax_", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 请查看账号绑定手机号信息，输入验证码后继续。 的本地化字符串。
+        /// </summary>
+        internal static string RequiresActivation {
+            get {
+                return ResourceManager.GetString("RequiresActivation", resourceCulture);
             }
         }
     }

@@ -499,7 +499,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 response = await RequestAsync(COMMUNITY_BASE + url_login_dologin, "POST", data, cookies);
                 if (response.Contains("\"captcha_gid\":-1"))
                 {
-                    state.Error = "您所输入的账户名或密码不正确。";
+                    state.Error = Strings.error_password;
                     return false;
                 }
                 var loginresponse = JsonSerializer.Deserialize<SteamDoLoginJsonStruct>(response, options);
@@ -517,6 +517,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                     state.RequiresCaptcha = true;
                     state.CaptchaId = loginresponse.CaptchaGId;
                     state.CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + state.CaptchaId;
+
+                    state.Error = Strings.CaptchaNeeded;
+                    return false;
                 }
                 else
                 {
@@ -536,6 +539,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                             state.EmailDomain = emaildomain;
                     }
                     state.RequiresEmailAuth = true;
+
+                    state.Error = Strings.EmailAuthNeeded;
+                    return false;
                 }
                 else
                 {
@@ -553,7 +559,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 if (loginresponse.LoginComplete == false || loginresponse.OAuth == null)
                 {
                     if (loginresponse.OAuth == null)
-                        state.Error = "Invalid response from Steam (No OAuth token)";
+                        state.Error = Strings.error_NoOAuth;
                     if (loginresponse.Message != null)
                         state.Error = loginresponse.Message;
                     return false;
@@ -618,7 +624,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 {
                     state.OAuthToken = null;
                     state.Cookies = null;
-                    state.Error = Strings.error_invalid_response_from_steam_;
+                    state.Error = Strings.error_invalid_response_from_steam_.Format(response);
                     return false;
                 }
                 if (!response.Contains("status", StringComparison.CurrentCulture) && tfaresponse.Response.Status == 84)
@@ -663,6 +669,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
                 state.RequiresActivation = true;
 
+                state.Error = Strings.RequiresActivation;
                 return false;
             }
 
@@ -683,7 +690,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 finalizeresponse.ThrowIsNull();
                 if (finalizeresponse.Response == null)
                 {
-                    state.Error = Strings.error_invalid_response_from_steam_;
+                    state.Error = Strings.error_invalid_response_from_steam_.Format(response);
                     return false;
                 }
                 if (response.IndexOf("status") != -1 && finalizeresponse.Response.Status == INVALID_ACTIVATION_CODE)

@@ -597,7 +597,7 @@ public partial class SteamClient : IDisposable
             if (rsaresponse.Success != true)
             {
                 InvalidLogin = true;
-                Error = "Unknown username";
+                Error = Strings.error_password;
                 return false;
             }
 
@@ -665,6 +665,9 @@ public partial class SteamClient : IDisposable
                     RequiresCaptcha = true;
                     CaptchaId = loginresponse.CaptchaGId;
                     CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + CaptchaId;
+
+                    Error = Strings.CaptchaNeeded;
+                    return false;
                 }
 
                 // require email auth
@@ -675,6 +678,9 @@ public partial class SteamClient : IDisposable
                         EmailDomain = loginresponse.EmailDomain;
                     }
                     RequiresEmailAuth = true;
+
+                    Error = Strings.EmailAuthNeeded;
+                    return false;
                 }
 
                 // require email auth
