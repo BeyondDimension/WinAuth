@@ -1,5 +1,6 @@
 <Project>
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<!-- https://spdx.org/licenses -->
 		<PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/BeyondDimension/WinAuth</PackageProjectUrl>
 		<PackageReleaseNotes>$(PackageProjectUrl)/releases</PackageReleaseNotes>

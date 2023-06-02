@@ -11,6 +11,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Include="..\ImplicitUsings.Common.cs">
+			<LinkBase>Properties</LinkBase>
+		</Compile>
 		<Compile Include="..\ImplicitUsings.MessagePack.cs">
 			<LinkBase>Properties</LinkBase>
 		</Compile>
@@ -45,7 +48,7 @@
 		<PackageReference Include="ReactiveUI.Fody" />
 	</ItemGroup>
 
-	<Import Project="..\TFM_NET7.props" />
+	<Import Project="..\TFM_NETX.props" />
 	<Import Project="..\GeneratePackage.props" />
 
 </Project>

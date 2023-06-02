@@ -5,25 +5,35 @@ VisualStudioVersion = 17.4.33122.133
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinAuth", "src\WinAuth\WinAuth.csproj", "{AC76E0B8-28E7-4138-BAF3-BC1E18C89C82}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{FD79FB1B-D7CB-4557-8876-768F0D008495}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "0.Root", "0.Root", "{FD79FB1B-D7CB-4557-8876-768F0D008495}"
 	ProjectSection(SolutionItems) = preProject
 		src\.editorconfig = src\.editorconfig
+		.gitignore = .gitignore
+		.gitmodules = .gitmodules
 		.github\workflows\CI.yml = .github\workflows\CI.yml
 		src\Directory.Build.props = src\Directory.Build.props
 		ref\DirectoryPackages\Directory.Packages.props = ref\DirectoryPackages\Directory.Packages.props
 		src\GeneratePackage.props = src\GeneratePackage.props
+		nuget.config = nuget.config
 		README.md = README.md
-		src\TFM_NET7.props = src\TFM_NET7.props
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Code", "Code", "{4E45DBB6-8E34-49A1-932A-1B1F2A403FBD}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ImplicitUsings", "ImplicitUsings", "{4E45DBB6-8E34-49A1-932A-1B1F2A403FBD}"
 	ProjectSection(SolutionItems) = preProject
 		src\ImplicitUsings.BCL.cs = src\ImplicitUsings.BCL.cs
 		src\ImplicitUsings.Common.cs = src\ImplicitUsings.Common.cs
 		src\ImplicitUsings.MessagePack.cs = src\ImplicitUsings.MessagePack.cs
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinAuth.UnitTest", "src\WinAuth.UnitTest\WinAuth.UnitTest.csproj", "{9F582D52-6468-4675-8338-0229EBCAA26F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinAuth.UnitTest", "src\WinAuth.UnitTest\WinAuth.UnitTest.csproj", "{9F582D52-6468-4675-8338-0229EBCAA26F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{5DF866C8-6612-4B55-90AE-4903FAB317C9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TFM", "TFM", "{F1BF8828-2816-4C88-8D65-1C3178F79821}"
+	ProjectSection(SolutionItems) = preProject
+		src\TFM_NETX.props = src\TFM_NETX.props
+		src\TFM_NETX_SINGLE.props = src\TFM_NETX_SINGLE.props
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,7 +54,9 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{4E45DBB6-8E34-49A1-932A-1B1F2A403FBD} = {FD79FB1B-D7CB-4557-8876-768F0D008495}
+		{4E45DBB6-8E34-49A1-932A-1B1F2A403FBD} = {5DF866C8-6612-4B55-90AE-4903FAB317C9}
+		{5DF866C8-6612-4B55-90AE-4903FAB317C9} = {FD79FB1B-D7CB-4557-8876-768F0D008495}
+		{F1BF8828-2816-4C88-8D65-1C3178F79821} = {FD79FB1B-D7CB-4557-8876-768F0D008495}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6B642048-5921-466F-967B-8764F732E85C}

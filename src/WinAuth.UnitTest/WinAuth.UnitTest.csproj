@@ -1,11 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+		<Product>WinAuth.Library 单元测试</Product>
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
+		<DefineConstants>TEST_PROJ;$(DefineConstants)</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Include="..\ImplicitUsings.Common.cs">
+			<LinkBase>Properties</LinkBase>
+		</Compile>
 		<Compile Include="..\ImplicitUsings.UnitTest.cs">
 			<LinkBase>Properties</LinkBase>
 		</Compile>
@@ -22,6 +27,6 @@
 		<ProjectReference Include="..\WinAuth\WinAuth.csproj" />
 	</ItemGroup>
 
-	<Import Project="..\TFM_NET7.props" />
+	<Import Project="..\TFM_NETX_SINGLE.props" />
 
 </Project>
