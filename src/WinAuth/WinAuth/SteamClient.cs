@@ -1015,7 +1015,7 @@ public partial class SteamClient : IDisposable
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
         Authenticator.SteamData.ThrowIsNull();
-        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.IdentitySecret;
+        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
         ids.ThrowIsNull();
 
         var timehash = CreateTimeHash(servertime, "conf", ids);
@@ -1160,7 +1160,7 @@ public partial class SteamClient : IDisposable
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
         Authenticator.SteamData.ThrowIsNull();
-        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.IdentitySecret;
+        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
         ids.ThrowIsNull();
 
         var timehash = CreateTimeHash(servertime, "conf", ids);

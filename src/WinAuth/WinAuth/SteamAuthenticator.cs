@@ -85,7 +85,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? RecoveryCode => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.RevocationCode;
+    public string? RecoveryCode => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.RevocationCode;
 
     /// <summary>
     /// account_name
@@ -98,7 +98,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? AccountName => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.AccountName;
+    public string? AccountName => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.AccountName;
 
     /// <summary>
     /// steamid64
@@ -111,7 +111,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? SteamId64 => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct)?.SteamId;
+    public string? SteamId64 => string.IsNullOrEmpty(SteamData) ? null : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.SteamId;
 
     /// <summary>
     /// JSON session data
