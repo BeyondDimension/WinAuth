@@ -20,7 +20,9 @@ using ReactiveUI;
 using System.Collections.Specialized;
 using System.Web;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
+using static Org.BouncyCastle.Bcpg.Attr.ImageAttrib;
 using static WinAuth.SteamAuthenticator;
+using static WinAuth.SteamClient;
 using static WinAuth.SteamClient.Utils;
 
 namespace WinAuth;
@@ -249,14 +251,6 @@ public partial class SteamClient : IDisposable
         public bool IsNew { get; set; }
 
         public string Image { get; set; } = string.Empty;
-
-        private Task<string?>? _ImageStream;
-
-        public Task<string?>? ImageStream
-        {
-            get => _ImageStream;
-            set => this.RaiseAndSetIfChanged(ref _ImageStream, value);
-        }
 
         private bool _ButtonEnable = true;
 
@@ -1018,7 +1012,8 @@ public partial class SteamClient : IDisposable
         var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
         ids.ThrowIsNull();
 
-        var timehash = CreateTimeHash(servertime, "conf", ids);
+        // conf -> list
+        var timehash = CreateTimeHash(servertime, "list", ids);
 
         var data = new NameValueCollection()
         {
@@ -1026,11 +1021,13 @@ public partial class SteamClient : IDisposable
             { "a", Session.SteamId },
             { "k", timehash },
             { "t", servertime.ToString() },
-            { "m", "android" },
-            { "tag", "conf" },
+            { "m", "react" },
+            { "tag", "list" },
         };
 
-        string html = GetString(COMMUNITY_BASE + "/mobileconf/conf", "GET", data);
+        // https://steamcommunity.com/mobileconf/getlist?a=SteamID&tag=list&m=react&t=servertime&p=EncodeURL(deviceID)&k=EncodeURL(timehash)
+        // 格式变为json格式返回
+        string html = GetString(COMMUNITY_BASE + "/mobileconf/getlist", "GET", data);
 
         // save last html for confirmations details
         ConfirmationsHtml = html;
@@ -1163,7 +1160,9 @@ public partial class SteamClient : IDisposable
         var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
         ids.ThrowIsNull();
 
-        var timehash = CreateTimeHash(servertime, "conf", ids);
+        var conf = accept ? "accept" : "reject";
+        // conf -> accept ? "accept" : "reject"
+        var timehash = CreateTimeHash(servertime, conf, ids);
 
         var data = new NameValueCollection()
         {
@@ -1172,15 +1171,22 @@ public partial class SteamClient : IDisposable
             { "a", Session.SteamId },
             { "k", timehash },
             { "t", servertime.ToString() },
-            { "m", "android" },
-            { "tag", "conf" },
-            { "cid", id },
-            { "ck", key },
+            { "m", "react" },
+            { "tag", conf },
+            { "cid[]", id },
+            { "ck[]", key },
         };
 
         try
         {
-            string response = GetString(COMMUNITY_BASE + "/mobileconf/ajaxop", "GET", data);
+            // https://steamcommunity.com/mobileconf/multiajaxop?a=SteamID&tag=list&m=react&t=servertime&p=EncodeURL(deviceID)&k=EncodeURL(timehash)&op={accept ? "allow" : "cancel"}
+            // post 请求
+            // data 为 NameValueCollection 
+            // 现在可单条请求处理多个交易 循环以下代码添加批量的 cid 和 ck 即可
+            // data.Add("cid[]", id);
+            // data.Add("ck[]", key);
+            string response = GetString(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data);
+
             if (string.IsNullOrEmpty(response) == true)
             {
                 Error = "Blank response";
