@@ -18,11 +18,8 @@
 
 using ReactiveUI;
 using System.Collections.Specialized;
-using System.Web;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
-using static Org.BouncyCastle.Bcpg.Attr.ImageAttrib;
 using static WinAuth.SteamAuthenticator;
-using static WinAuth.SteamClient;
 using static WinAuth.SteamClient.Utils;
 
 namespace WinAuth;
