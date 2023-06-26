@@ -763,7 +763,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Synchronise this authenticator's time with Steam.
     /// </summary>
-    public override void Sync()
+    public override async void SyncAsync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -775,7 +775,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         try
         {
-            var response = RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT).GetAwaiter().GetResult();
+            var response = await RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
             var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
             var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
             json.ThrowIsNull();
@@ -814,7 +814,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             if (interval > 0)
                 ServerTimeDiff = (interval * Period * 1000L) - CurrentTime;
             else
-                Task.Run(Sync);
+                Task.Run(SyncAsync);
 
         var hmac = new HMac(new Sha1Digest());
         hmac.Init(new KeyParameter(SecretKey));

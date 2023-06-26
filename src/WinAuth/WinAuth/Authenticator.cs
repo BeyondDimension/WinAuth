@@ -288,7 +288,7 @@ partial class AuthenticatorValueDTO
             }
             else
             {
-                Sync();
+                SyncAsync();
             }
         }
 
@@ -331,7 +331,7 @@ partial class AuthenticatorValueDTO
         return code;
     }
 
-    public abstract void Sync();
+    public abstract void SyncAsync();
 
     #region Load / Save
 
@@ -708,7 +708,7 @@ partial class AuthenticatorValueDTO
         }
         else if (ServerTimeDiff == 0 || LastServerTime == 0 || LastServerTime < DateTime.Now.AddHours(-24).Ticks)
         {
-            Sync();
+            SyncAsync();
             return true;
         }
         else

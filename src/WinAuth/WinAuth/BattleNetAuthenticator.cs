@@ -434,7 +434,7 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Synchronise this authenticator's time with server time. We update our data record with the difference from our UTC time.
     /// </summary>
-    public override void Sync()
+    public override async void SyncAsync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -457,7 +457,7 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
 
             // get response
             byte[]? responseData = null;
-            using (var response = httpClient.Send(requestMessage))
+            using (var response = await httpClient.SendAsync(requestMessage))
             {
                 // OK?
                 if (response.StatusCode != HttpStatusCode.OK)
@@ -468,7 +468,7 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
                 // load back the buffer - should only be a byte[8]
                 using var ms = new MemoryStream();
                 // using (BufferedStream bs = new BufferedStream(response.GetResponseStream()))
-                using var bs = response.Content.ReadAsStream();
+                using var bs = await response.Content.ReadAsStreamAsync();
                 var temp = new byte[RESPONSE_BUFFER_SIZE];
                 int read;
                 while ((read = bs.Read(temp, 0, RESPONSE_BUFFER_SIZE)) != 0)
@@ -677,7 +677,7 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         RestoreCodeVerified = true;
         // sync the time
         ServerTimeDiff = 0L;
-        Sync();
+        SyncAsync();
     }
 
     /// <summary>
