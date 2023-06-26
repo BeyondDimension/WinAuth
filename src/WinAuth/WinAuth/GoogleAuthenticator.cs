@@ -83,13 +83,13 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
     public void Enroll(string b32key)
     {
         SecretKey = Base32.GetInstance().Decode(b32key);
-        SyncAsync();
+        Sync();
     }
 
     /// <summary>
     /// Synchronise this authenticator's time with Google. We update our data record with the difference from our UTC time.
     /// </summary>
-    public override async void SyncAsync()
+    public override void Sync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -112,7 +112,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
             };
             using var client = new HttpClient();
             client.Timeout = new TimeSpan(0, 0, 5);
-            using var response = await client.SendAsync(requestMessage);
+            using var response = client.Send(requestMessage);
 
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)

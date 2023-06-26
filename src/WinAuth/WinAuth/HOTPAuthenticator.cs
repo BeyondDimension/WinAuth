@@ -106,7 +106,7 @@ public sealed class HOTPAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Synchronise this authenticator
     /// </summary>
-    public override void SyncAsync()
+    public override void Sync()
     {
     }
 
