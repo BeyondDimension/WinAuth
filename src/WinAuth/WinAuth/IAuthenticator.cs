@@ -68,7 +68,7 @@ partial interface IAuthenticatorValueDTO
     /// <summary>
     /// 将此验证器的时间与服务器时间同步。我们用UTC时间的差值更新数据记录
     /// </summary>
-    void SyncAsync();
+    void Sync();
 
     void Protect();
 
