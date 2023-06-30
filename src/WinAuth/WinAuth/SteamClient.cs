@@ -15,7 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 using ReactiveUI;
 using System.Collections.Specialized;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
@@ -97,29 +96,29 @@ public partial class SteamClient : IDisposable
     /// </summary>
     const string USERAGENT = "Mozilla/5.0 (Linux; Android 8.1.0; Nexus 5X Build/OPM7.181205.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36";
 
-    /// <summary>
-    /// Regular expressions for trade confirmations
-    /// </summary>
-    static readonly Regex _tradesRegex = TradesRegexRegex();
-    static readonly Regex _tradeConfidRegex = TradeConfidRegex();
-    static readonly Regex _tradeKeyRegex = TradeKeyRegexRegex();
-    static readonly Regex _tradePlayerRegex = TradePlayerRegex();
-    static readonly Regex _tradeDetailsRegex = TtradeDetailsRegex();
-
-    [GeneratedRegex("\"mobileconf_list_entry\"(.*?)>(.*?)\"mobileconf_list_entry_sep\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex TradesRegexRegex();
-
-    [GeneratedRegex("data-confid\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex TradeConfidRegex();
-
-    [GeneratedRegex("data-key\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex TradeKeyRegexRegex();
-
-    [GeneratedRegex("\"mobileconf_list_entry_icon\"(.*?)src=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex TradePlayerRegex();
-
-    [GeneratedRegex("\"mobileconf_list_entry_description\".*?<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*</div>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex TtradeDetailsRegex();
+    // /// <summary>
+    // /// Regular expressions for trade confirmations
+    // /// </summary>
+    // static readonly Regex _tradesRegex = TradesRegexRegex();
+    // static readonly Regex _tradeConfidRegex = TradeConfidRegex();
+    // static readonly Regex _tradeKeyRegex = TradeKeyRegexRegex();
+    // static readonly Regex _tradePlayerRegex = TradePlayerRegex();
+    // static readonly Regex _tradeDetailsRegex = TtradeDetailsRegex();
+    //
+    // [GeneratedRegex("\"mobileconf_list_entry\"(.*?)>(.*?)\"mobileconf_list_entry_sep\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradesRegexRegex();
+    //
+    // [GeneratedRegex("data-confid\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradeConfidRegex();
+    //
+    // [GeneratedRegex("data-key\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradeKeyRegexRegex();
+    //
+    // [GeneratedRegex("\"mobileconf_list_entry_icon\"(.*?)src=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradePlayerRegex();
+    //
+    // [GeneratedRegex("\"mobileconf_list_entry_description\".*?<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*</div>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TtradeDetailsRegex();
 
     /// <summary>
     /// Number of Confirmation retries
@@ -430,10 +429,12 @@ public partial class SteamClient : IDisposable
     /// </summary>
     public SteamAuthenticator Authenticator;
 
-    /// <summary>
-    /// Saved Html from GetConfirmations used as template for GetDetails
-    /// </summary>
-    string? ConfirmationsHtml;
+    // /// <summary>
+    // /// Saved Html from GetConfirmations used as template for GetDetails
+    // /// </summary>
+    // string? ConfirmationsHtml;
+
+    public string? SteamUserImageUrl;
 
     /// <summary>
     /// Query string from GetConfirmations used in GetDetails
@@ -468,7 +469,7 @@ public partial class SteamClient : IDisposable
             {
                 Task.Factory.StartNew(() =>
                 {
-                    Refresh();
+                    //Refresh();
                     PollConfirmations(Session.Confirmations);
                 });
             }
@@ -625,18 +626,13 @@ public partial class SteamClient : IDisposable
             };
             const string url_mobilelogin_dologin = "/mobilelogin/dologin";
             response = GetString(COMMUNITY_BASE + url_mobilelogin_dologin, "POST", data);
-            var loginresponse = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamDoLoginJsonStruct);
+            var loginresponse = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamMobileDologinJsonStruct);
             loginresponse.ThrowIsNull();
 
             //if (loginresponse == null)
             //{
             //    throw GetWinAuthException(response, url_mobilelogin_dologin, new ArgumentNullException(nameof(loginresponse)));
             //}
-
-            if (loginresponse.EmailSteamId != string.Empty)
-            {
-                Session.SteamId = loginresponse.EmailSteamId;
-            }
 
             InvalidLogin = false;
             RequiresCaptcha = false;
@@ -646,55 +642,56 @@ public partial class SteamClient : IDisposable
             EmailDomain = null;
             Requires2FA = false;
 
-            if (loginresponse.LoginComplete == false || loginresponse.OAuth == null)
+            if (loginresponse.LoginComplete == false || loginresponse.TransferParameters == null)
             {
                 InvalidLogin = true;
 
-                // require captcha
-                if (loginresponse.CaptchaNeeded == true)
-                {
-                    RequiresCaptcha = true;
-                    CaptchaId = loginresponse.CaptchaGId;
-                    CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + CaptchaId;
+                //// require captcha
+                //if (loginresponse.CaptchaNeeded == true)
+                //{
+                //    RequiresCaptcha = true;
+                //    CaptchaId = loginresponse.CaptchaGId;
+                //    CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + CaptchaId;
 
-                    Error = Strings.CaptchaNeeded;
-                    return false;
-                }
+                //    Error = Strings.CaptchaNeeded;
+                //    return false;
+                //}
+
+                //// require email auth
+                //if (loginresponse.EmailAuthNeeded == true)
+                //{
+                //    if (loginresponse.EmailDomain != string.Empty)
+                //    {
+                //        EmailDomain = loginresponse.EmailDomain;
+                //    }
+                //    RequiresEmailAuth = true;
+
+                //    Error = Strings.EmailAuthNeeded;
+                //    return false;
+                //}
 
                 // require email auth
-                if (loginresponse.EmailAuthNeeded == true)
-                {
-                    if (loginresponse.EmailDomain != string.Empty)
-                    {
-                        EmailDomain = loginresponse.EmailDomain;
-                    }
-                    RequiresEmailAuth = true;
-
-                    Error = Strings.EmailAuthNeeded;
-                    return false;
-                }
-
-                // require email auth
-                if (loginresponse.RequiresTwoFactor == true)
+                if (loginresponse.RequiresTwofactor == true)
                 {
                     Requires2FA = true;
                 }
 
-                if (loginresponse.Message != string.Empty)
-                {
-                    Error = loginresponse.Message;
-                }
+                //if (loginresponse.Message != string.Empty)
+                //{
+                //    Error = loginresponse.Message;
+                //}
 
                 return false;
             }
 
             // get the OAuth token
-            var oauthjson = JsonSerializer.Deserialize(loginresponse.OAuth, SteamJsonContext.Default.SteamDoLoginOauthJsonStruct);
+            //var oauthjson = JsonSerializer.Deserialize(loginresponse.OAuth, SteamJsonContext.Default.SteamDoLoginOauthJsonStruct);
+            var oauthjson = loginresponse.TransferParameters;
             oauthjson.ThrowIsNull();
-            Session.OAuthToken = oauthjson.OAuthToken;
-            if (oauthjson.SteamId != string.Empty)
+            Session.OAuthToken = oauthjson.Auth;
+            if (oauthjson.Steamid != string.Empty)
             {
-                Session.SteamId = oauthjson.SteamId;
+                Session.SteamId = oauthjson.Steamid;
             }
 
             //// perform UMQ login
@@ -725,73 +722,73 @@ public partial class SteamClient : IDisposable
         {
             PollConfirmationsStop();
 
-            if (string.IsNullOrEmpty(Session.UmqId) == false)
-            {
-                var data = new NameValueCollection
-                {
-                    { "access_token", Session.OAuthToken },
-                    { "umqid", Session.UmqId },
-                };
-                GetString(API_LOGOFF, "POST", data);
-            }
+            // if (string.IsNullOrEmpty(Session.UmqId) == false)
+            // {
+            //     var data = new NameValueCollection
+            //     {
+            //         { "access_token", Session.OAuthToken },
+            //         { "umqid", Session.UmqId },
+            //     };
+            //     GetString(API_LOGOFF, "POST", data);
+            // }
         }
 
         Clear();
     }
 
-    /// <summary>
-    /// Refresh the login session cookies from the OAuth code
-    /// </summary>
-    /// <returns>true if successful</returns>
+    // /// <summary>
+    // /// Refresh the login session cookies from the OAuth code
+    // /// </summary>
+    // /// <returns>true if successful</returns>
     //[Obsolete("use RefreshAsync")]
-    public bool Refresh()
-    {
-        try
-        {
-            var data = new NameValueCollection
-            {
-                { "access_token", Session.OAuthToken },
-            };
-            string response = GetString(API_GETWGTOKEN, "POST", data);
-            if (string.IsNullOrEmpty(response) == true)
-            {
-                return false;
-            }
-
-            var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamRefreshJsonStruct);
-            jsonobj.ThrowIsNull();
-            if (jsonobj.Token == string.Empty)
-            {
-                return false;
-            }
-            var cookieuri = new Uri(COMMUNITY_BASE + "/");
-            Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + jsonobj.Token));
-
-            if (jsonobj.TokenSecure == string.Empty)
-            {
-                return false;
-            }
-            Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + jsonobj.TokenSecure));
-
-            // perform UMQ login
-            //response = GetString(API_LOGON, "POST", data);
-            //var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
-            //if (loginresponse.ContainsKey("umqid") == true)
-            //{
-            //	this.Session.UmqId = (string)loginresponse["umqid"];
-            //	if (loginresponse.ContainsKey("message") == true)
-            //	{
-            //		this.Session.MessageId = Convert.ToInt32(loginresponse["message"]);
-            //	}
-            //}
-
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
+    // public bool Refresh()
+    // {
+    //     try
+    //     {
+    //         var data = new NameValueCollection
+    //         {
+    //             { "access_token", Session.OAuthToken },
+    //         };
+    //         string response = GetString(API_GETWGTOKEN, "POST", data);
+    //         if (string.IsNullOrEmpty(response) == true)
+    //         {
+    //             return false;
+    //         }
+    //
+    //         var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamRefreshJsonStruct);
+    //         jsonobj.ThrowIsNull();
+    //         if (jsonobj.Token == string.Empty)
+    //         {
+    //             return false;
+    //         }
+    //         var cookieuri = new Uri(COMMUNITY_BASE + "/");
+    //         Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + jsonobj.Token));
+    //
+    //         if (jsonobj.TokenSecure == string.Empty)
+    //         {
+    //             return false;
+    //         }
+    //         Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + jsonobj.TokenSecure));
+    //
+    //         // perform UMQ login
+    //         //response = GetString(API_LOGON, "POST", data);
+    //         //var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+    //         //if (loginresponse.ContainsKey("umqid") == true)
+    //         //{
+    //         //	this.Session.UmqId = (string)loginresponse["umqid"];
+    //         //	if (loginresponse.ContainsKey("message") == true)
+    //         //	{
+    //         //		this.Session.MessageId = Convert.ToInt32(loginresponse["message"]);
+    //         //	}
+    //         //}
+    //
+    //         return true;
+    //     }
+    //     catch (Exception)
+    //     {
+    //         return false;
+    //     }
+    // }
 
     ///// <summary>
     ///// Perform a UMQ login
@@ -830,7 +827,7 @@ public partial class SteamClient : IDisposable
     /// <param name="sender"></param>
     /// <param name="newconfirmation">new Confirmation</param>
     /// <param name="action">action to be taken</param>
-    public delegate void ConfirmationDelegate(object sender, Confirmation newconfirmation, PollerAction action);
+    public delegate void ConfirmationDelegate(object sender, SteamMobileTradeConf newconfirmation, PollerAction action);
 
     /// <summary>
     /// Delegate for Confirmation error
@@ -975,13 +972,13 @@ public partial class SteamClient : IDisposable
                     else
                     {
                         // try and reset the session
-                        try
-                        {
-                            Refresh();
-                        }
-                        catch (Exception)
-                        {
-                        }
+                        // try
+                        // {
+                        //     Refresh();
+                        // }
+                        // catch (Exception)
+                        // {
+                        // }
                     }
                 }
 
@@ -1001,7 +998,7 @@ public partial class SteamClient : IDisposable
     /// </summary>
     /// <returns>list of Confirmation objects</returns>
     //[Obsolete("use GetConfirmationsAsync")]
-    public List<Confirmation> GetConfirmations()
+    public IEnumerable<SteamMobileTradeConf> GetConfirmations()
     {
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
@@ -1027,70 +1024,88 @@ public partial class SteamClient : IDisposable
         string html = GetString(COMMUNITY_BASE + "/mobileconf/getlist", "GET", data);
 
         // save last html for confirmations details
-        ConfirmationsHtml = html;
+        //ConfirmationsHtml = html;
         ConfirmationsQuery = string.Join("&", Array.ConvertAll(data.AllKeys, key => string.Format("{0}={1}", HttpUtility.UrlEncode(key), HttpUtility.UrlEncode(data[key]))));
 
-        List<Confirmation> trades = new();
+        var jsonObject = JsonSerializer.Deserialize(html, SteamJsonContext.Default.SteamMobileConfGetListJsonStruct);
 
+        if (jsonObject?.Conf == null) return new SteamMobileTradeConf[] { };
+        
+        // foreach (var item in jsonObject.Conf)
+        // {
+        //     var trade = new  Conf();
+        //     trade.Id = item.Id;
+        //     trade.Key = item.Nonce;
+        //     trade.Image = item.Icon;
+        //     foreach (var summary in item.Summary)
+        //     {
+        //         trade.Details += summary + "\r\n";
+        //     }
+        //
+        //     trade.When = item.Warn;
+        //     
+        //     trades.Add(trade);
+        // }
         // extract the trades
-        Match match = _tradesRegex.Match(html);
-        while (match.Success)
-        {
-            var tradeIds = match.Groups[1].Value;
-
-            var trade = new Confirmation();
-
-            var innerMatch = _tradeConfidRegex.Match(tradeIds);
-            if (innerMatch.Success)
-            {
-                trade.Id = innerMatch.Groups[1].Value;
-            }
-            innerMatch = _tradeKeyRegex.Match(tradeIds);
-            if (innerMatch.Success)
-            {
-                trade.Key = innerMatch.Groups[1].Value;
-            }
-
-            var traded = match.Groups[2].Value;
-
-            innerMatch = _tradePlayerRegex.Match(traded);
-            if (innerMatch.Success)
-            {
-                if (innerMatch.Groups[1].Value.IndexOf("offline") != -1)
-                {
-                    trade.Offline = true;
-                }
-                trade.Image = innerMatch.Groups[2].Value.Replace("32fx32f", "128fx128f");
-            }
-
-            innerMatch = _tradeDetailsRegex.Match(traded);
-            if (innerMatch.Success)
-            {
-                trade.Details = innerMatch.Groups[1].Value;
-                trade.Traded = innerMatch.Groups[2].Value;
-                trade.When = innerMatch.Groups[3].Value;
-            }
-
-            trades.Add(trade);
-
-            match = match.NextMatch();
-        }
+        // Match match = _tradesRegex.Match(html);
+        // while (match.Success)
+        // {
+        //     var tradeIds = match.Groups[1].Value;
+        //
+        //     var trade = new Confirmation();
+        //
+        //     var innerMatch = _tradeConfidRegex.Match(tradeIds);
+        //     if (innerMatch.Success)
+        //     {
+        //         trade.Id = innerMatch.Groups[1].Value;
+        //     }
+        //     innerMatch = _tradeKeyRegex.Match(tradeIds);
+        //     if (innerMatch.Success)
+        //     {
+        //         trade.Key = innerMatch.Groups[1].Value;
+        //     }
+        //
+        //     var traded = match.Groups[2].Value;
+        //
+        //     innerMatch = _tradePlayerRegex.Match(traded);
+        //     if (innerMatch.Success)
+        //     {
+        //         if (innerMatch.Groups[1].Value.IndexOf("offline") != -1)
+        //         {
+        //             trade.Offline = true;
+        //         }
+        //         trade.Image = innerMatch.Groups[2].Value.Replace("32fx32f", "128fx128f");
+        //     }
+        //
+        //     innerMatch = _tradeDetailsRegex.Match(traded);
+        //     if (innerMatch.Success)
+        //     {
+        //         trade.Details = innerMatch.Groups[1].Value;
+        //         trade.Traded = innerMatch.Groups[2].Value;
+        //         trade.When = innerMatch.Groups[3].Value;
+        //     }
+        //
+        //     trades.Add(trade);
+        //
+        //     match = match.NextMatch();
+        // }
 
         if (Session.Confirmations != null)
         {
             lock (Session.Confirmations)
             {
                 Session.Confirmations.Ids ??= new List<string>();
-                foreach (var conf in trades)
+                foreach (var conf in jsonObject.Conf)
                 {
-                    conf.IsNew = Session.Confirmations.Ids.Contains(conf.Id) == false;
-                    if (conf.IsNew == true)
-                    {
-                        Session.Confirmations.Ids.Add(conf.Id);
-                    }
+                    // conf.IsNew = Session.Confirmations.Ids.Contains(conf.Id) == false;
+                    // if (conf.IsNew == true)
+                    // {
+                    //     Session.Confirmations.Ids.Add(conf.Id);
+                    // }
+                    if (!Session.Confirmations.Ids.Contains(conf.Id)) Session.Confirmations.Ids.Add(conf.Id);
                 }
-                var newIds = trades.Select(t => t.Id).ToList();
-                foreach (var confId in Session.Confirmations.Ids.ToList())
+                var newIds = jsonObject.Conf.Select(t => t.Id).ToList();
+                foreach (var confId in Session.Confirmations.Ids)
                 {
                     if (newIds.Contains(confId) == false)
                     {
@@ -1100,51 +1115,102 @@ public partial class SteamClient : IDisposable
             }
         }
 
-        return trades;
+        return jsonObject.Conf;
     }
 
-    /// <summary>
-    /// Get details for an individual Confirmation
-    /// </summary>
-    /// <param name="trade">trade Confirmation</param>
-    /// <returns>html string of details</returns>
-    //[Obsolete("use GetConfirmationDetailsAsync")]
-    //[Obsolete("0 references", true)]
-    public string GetConfirmationDetails(Confirmation trade)
+    string? GetSelfIconUrlFromConfirmationDetails(string html)
     {
-        // build details URL
-        string url = COMMUNITY_BASE + "/mobileconf/details/" + trade.Id + "?" + ConfirmationsQuery;
+        var regex = GetSelfIconUrlFromConfirmationDetailsRegex().Match(html);
+        var result = regex.Groups[1].Value;
+        return result.Insert(result.IndexOf(".jpg", StringComparison.Ordinal), "_full");
+    }
+    
+    public (string[] receiveItems, string[] sendItems) GetConfirmationItemImageUrls(string tradeId)
+    {
+        string url = COMMUNITY_BASE + "/mobileconf/details/" + tradeId + "?" + ConfirmationsQuery;
 
         string response = GetString(url);
         if (!response.Contains("success", StringComparison.OrdinalIgnoreCase))
         {
             throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
         }
+
         var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
         jsonobj.ThrowIsNull();
+        
+        List<string> sendItems = new();
+        List<string> receiveItems = new();
+        
         if (jsonobj.Success == true)
         {
-            ConfirmationsHtml.ThrowIsNull();
-            Regex detailsRegex = ConfirmationDetailsRegex();
-            var match = detailsRegex.Match(ConfirmationsHtml);
-            if (match.Success == true)
+            SteamUserImageUrl = GetSelfIconUrlFromConfirmationDetails(jsonobj.Html);
+            
+            var masterRegex = ConfirmationItemImageUrlsRegex().Matches(jsonobj.Html);
+            foreach (Match items in masterRegex)
             {
-                return match.Groups[1].Value + jsonobj.Html + match.Groups[2].Value;
+                if (items.Success != true) throw new Exception("获取交易报价图片imageUrl失败");
+                var itemUrls = ConfirmationItemImageUrlsGetRegex().Matches(items.Groups[1].Value);
+                if (items.Groups[0].Value.Contains("您的报价"))
+                {
+                    foreach (Match itemUrl in itemUrls)
+                    {
+                        sendItems.Add(itemUrl.Groups[1].Value);
+                    }
+                }
+                else
+                {
+                    foreach (Match itemUrl in itemUrls)
+                    {
+                        receiveItems.Add(itemUrl.Groups[1].Value);
+                    }
+                }
             }
         }
 
-        return "<html><head></head><body><p>Cannot load trade confirmation details</p></body></html>";
+        return (receiveItems.ToArray(), sendItems.ToArray());
     }
+
+    // /// <summary>
+    // /// Get details for an individual Confirmation
+    // /// </summary>
+    // /// <param name="trade">trade Confirmation</param>
+    // /// <returns>html string of details</returns>
+    // //[Obsolete("use GetConfirmationDetailsAsync")]
+    // //[Obsolete("0 references", true)]
+    // public string GetConfirmationDetails(Confirmation trade)
+    // {
+    //     // build details URL
+    //     string url = COMMUNITY_BASE + "/mobileconf/details/" + trade.Id + "?" + ConfirmationsQuery;
+    //
+    //     string response = GetString(url);
+    //     if (!response.Contains("success", StringComparison.OrdinalIgnoreCase))
+    //     {
+    //         throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
+    //     }
+    //     var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
+    //     jsonobj.ThrowIsNull();
+    //     if (jsonobj.Success == true)
+    //     {
+    //         ConfirmationsHtml.ThrowIsNull();
+    //         Regex detailsRegex = ConfirmationDetailsRegex();
+    //         var match = detailsRegex.Match(ConfirmationsHtml);
+    //         if (match.Success == true)
+    //         {
+    //             return match.Groups[1].Value + jsonobj.Html + match.Groups[2].Value;
+    //         }
+    //     }
+    //
+    //     return $"<html><head></head><body><p>{jsonobj.Html}</p></body></html>";
+    // }
 
     /// <summary>
     /// Confirm or reject a specific trade confirmation
     /// </summary>
-    /// <param name="id">id of trade</param>
-    /// <param name="key">key for trade</param>
+    /// <param name="trades">Id and Key</param>
     /// <param name="accept">true to accept, false to reject</param>
     /// <returns>true if successful</returns>
     //[Obsolete("use ConfirmTradeAsync")]
-    public bool ConfirmTrade(string id, string key, bool accept)
+    public bool ConfirmTrade(Dictionary<string, string> trades, bool accept)
     {
         if (string.IsNullOrEmpty(Session.OAuthToken) == true)
         {
@@ -1154,7 +1220,9 @@ public partial class SteamClient : IDisposable
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
         Authenticator.SteamData.ThrowIsNull();
-        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
+        var ids = JsonSerializer
+            .Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)
+            ?.IdentitySecret;
         ids.ThrowIsNull();
 
         var conf = accept ? "accept" : "reject";
@@ -1170,10 +1238,12 @@ public partial class SteamClient : IDisposable
             { "t", servertime.ToString() },
             { "m", "react" },
             { "tag", conf },
-            { "cid[]", id },
-            { "ck[]", key },
         };
-
+        foreach (var item in trades)
+        {
+            data.Add("cid[]", item.Key);
+            data.Add("ck[]", item.Value);
+        }
         try
         {
             // https://steamcommunity.com/mobileconf/multiajaxop?a=SteamID&tag=list&m=react&t=servertime&p=EncodeURL(deviceID)&k=EncodeURL(timehash)&op={accept ? "allow" : "cancel"}
@@ -1202,9 +1272,9 @@ public partial class SteamClient : IDisposable
             {
                 lock (Session.Confirmations)
                 {
-                    if (Session.Confirmations.Ids.Contains(id) == true)
+                    foreach (var item in trades.Where(item => Session.Confirmations.Ids.Contains(item.Key) == true))
                     {
-                        Session.Confirmations.Ids.Remove(id);
+                        Session.Confirmations.Ids.Remove(item.Key);
                     }
                 }
             }
@@ -1552,6 +1622,15 @@ public partial class SteamClient : IDisposable
     //    return StringToByteArray(SelectTokenValueStr(obj, path));
     //}
 
-    [GeneratedRegex("(.*<body[^>]*>\\s*<div\\s+class=\"[^\"]+\">).*(</div>.*?</body>\\s*</html>)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex ConfirmationDetailsRegex();
+    // [GeneratedRegex("(.*<body[^>]*>\\s*<div\\s+class=\"[^\"]+\">).*(</div>.*?</body>\\s*</html>)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex ConfirmationDetailsRegex();
+    
+    [GeneratedRegex("<div class=\"tradeoffer_items_header\">.*?<div class=\"tradeoffer_item_list\">(.*?)<div style=\"clear: left;\"></div>", RegexOptions.Singleline)]
+    private static partial Regex ConfirmationItemImageUrlsRegex();
+    
+    [GeneratedRegex("<img src=\"(.*?)\"")]
+    private static partial Regex ConfirmationItemImageUrlsGetRegex();
+    
+    [GeneratedRegex("<div class=\"tradeoffer_items primary\">.*?<img src=\"(.*?)\"", RegexOptions.Singleline)]
+    private static partial Regex GetSelfIconUrlFromConfirmationDetailsRegex();
 }

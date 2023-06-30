@@ -12,6 +12,8 @@ namespace BD.WTTS.Models;
 [JsonSerializable(typeof(SteamRefreshJsonStruct))]
 [JsonSerializable(typeof(SteamGetConfirmationJsonStruct))]
 [JsonSerializable(typeof(SteamConvertSteamDataJsonStruct))]
+[JsonSerializable(typeof(SteamMobileDologinJsonStruct))]
+[JsonSerializable(typeof(SteamMobileConfGetListJsonStruct))]
 public partial class SteamJsonContext : JsonSerializerContext
 {
 }

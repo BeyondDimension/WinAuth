@@ -28,8 +28,8 @@ global using System.Buffers;
 global using System.IO.Pipes;
 global using PipeOptions = System.IO.Pipes.PipeOptions;
 #if !NETFRAMEWORK_SINGLE_FILE && !RES_PROJ
-global using System.IO.Pipelines;
-global using PipelineOptions = System.IO.Pipelines.PipeOptions;
+//global using System.IO.Pipelines;
+//global using PipelineOptions = System.IO.Pipelines.PipeOptions;
 #endif
 #endif
 global using System.IO.Compression;
@@ -43,7 +43,7 @@ global using System.Net.Security;
 #if !NETFRAMEWORK && !APP_HOST && !NETFRAMEWORK_SINGLE_FILE && !RES_PROJ
 global using System.Net.Http.Headers;
 global using System.Net.Http.Json;
-global using System.Net.Http.Client;
+//global using System.Net.Http.Client;
 #endif
 global using System.Net.Sockets;
 global using System.Reflection;
@@ -98,8 +98,8 @@ global using HttpMethod = System.Net.Http.HttpMethod;
 #endif
 
 #if !NETFRAMEWORK && !APP_HOST && !NETFRAMEWORK_SINGLE_FILE && !RES_PROJ
-global using HttpHandlerCategory = System.Net.Http.Client.HttpHandlerCategory;
-global using IHttpClientFactory = System.Net.Http.Client.IHttpClientFactory;
+//global using HttpHandlerCategory = System.Net.Http.Client.HttpHandlerCategory;
+//global using IHttpClientFactory = System.Net.Http.Client.IHttpClientFactory;
 #endif
 
 #if ANDROID
