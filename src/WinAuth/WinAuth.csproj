@@ -43,12 +43,11 @@
 		<PackageReference Include="BD.Common.Primitives" />
 		<PackageReference Include="BD.Common.Security" />
 		<PackageReference Include="Portable.BouncyCastle" />
-		<PackageReference Include="protobuf-net" />
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
 		<PackageReference Include="ReactiveUI" />
 		<PackageReference Include="ReactiveUI.Fody" />
 	</ItemGroup>
-
+	
 	<Import Project="..\TFM_NETX.props" />
 	<Import Project="..\GeneratePackage.props" />
 
