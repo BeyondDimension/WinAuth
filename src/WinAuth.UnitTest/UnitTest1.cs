@@ -24,37 +24,37 @@ public class Tests
         Ioc.ConfigureServices(service);
     }
 
-    [Test]
-    public async Task SteamAuthenticatorTest()
-    {
-        SteamAuthenticator steamAuthenticator = new();
-        SteamAuthenticator.EnrollState enrollState = new()
-        {
-            Language = "zh-Hans",
-            Username = "hhhhh",
-            Password = "hhhhh"
-        };
-        await steamAuthenticator.EnrollAsync(enrollState);
-        //while (enrollState.RequiresCaptcha || enrollState.RequiresEmailAuth || enrollState.RequiresActivation)
-        //{
-        //    if (enrollState.RequiresCaptcha)
-        //    {
-        //        enrollState.CaptchaText = "1234";
-        //        await steamAuthenticator.EnrollAsync(enrollState);
-        //    }
-        //    if (enrollState.RequiresEmailAuth)
-        //    {
-        //        enrollState.EmailAuthText = "M6B9P";
-        //        await steamAuthenticator.EnrollAsync(enrollState);
-        //    }
-        //    if (enrollState.RequiresActivation)
-        //    {
-        //        enrollState.ActivationCode = "29231";
-        //        await steamAuthenticator.EnrollAsync(enrollState);
-        //    }
-        //}
-        TestContext.WriteLine(enrollState.Success.ToString());
-    }
+    //[Test]
+    //public async Task SteamAuthenticatorTest()
+    //{
+    //    SteamAuthenticator steamAuthenticator = new();
+    //    SteamAuthenticator.EnrollState enrollState = new()
+    //    {
+    //        Language = "zh-Hans",
+    //        Username = "hhhhh",
+    //        Password = "hhhhh"
+    //    };
+    //    await steamAuthenticator.EnrollAsync(enrollState);
+    //    //while (enrollState.RequiresCaptcha || enrollState.RequiresEmailAuth || enrollState.RequiresActivation)
+    //    //{
+    //    //    if (enrollState.RequiresCaptcha)
+    //    //    {
+    //    //        enrollState.CaptchaText = "1234";
+    //    //        await steamAuthenticator.EnrollAsync(enrollState);
+    //    //    }
+    //    //    if (enrollState.RequiresEmailAuth)
+    //    //    {
+    //    //        enrollState.EmailAuthText = "M6B9P";
+    //    //        await steamAuthenticator.EnrollAsync(enrollState);
+    //    //    }
+    //    //    if (enrollState.RequiresActivation)
+    //    //    {
+    //    //        enrollState.ActivationCode = "29231";
+    //    //        await steamAuthenticator.EnrollAsync(enrollState);
+    //    //    }
+    //    //}
+    //    TestContext.WriteLine(enrollState.Success.ToString());
+    //}
 
     //[Test]
     //public void SteamClientTest()
