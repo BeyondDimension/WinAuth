@@ -31,4 +31,7 @@ public class Transfer_Parameters
 
     [JsonPropertyName("remember_login")]
     public bool RememberLogin { get; set; }
+
+    [JsonPropertyName("webcookie")]
+    public string? WebCookie { get; set; }
 }

@@ -150,4 +150,7 @@
   <data name="RequiresActivation" xml:space="preserve">
     <value>请查看账号绑定手机号信息，输入验证码后继续。</value>
   </data>
+  <data name="error_HasAuthenticator" xml:space="preserve">
+	  <value>您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入</value>
+  </data>
 </root>

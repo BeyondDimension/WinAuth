@@ -164,7 +164,7 @@ public sealed class SteamConvertSteamDataJsonStruct
     public string SteamGuardScheme { get; set; } = string.Empty;
 
     [JsonPropertyName("server_time")]
-    public long ServerTime { get; set; }
+    public string ServerTime { get; set; } = string.Empty;
 
     [JsonPropertyName("uri")]
     public string Uri { get; set; } = string.Empty;
