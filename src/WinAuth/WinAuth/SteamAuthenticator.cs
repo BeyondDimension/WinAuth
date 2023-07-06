@@ -337,7 +337,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <param name="headers"></param>
     /// <param name="timeout"></param>
     /// <returns>response body</returns>
-    static async Task<string> RequestAsync(string url, string method, NameValueCollection? data = null,
+    async Task<string> RequestAsync(string url, string method, NameValueCollection? data = null,
         CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0)
     {
         // create form-encoded data for query or body

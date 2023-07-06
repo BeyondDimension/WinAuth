@@ -681,6 +681,8 @@ public partial class SteamClient : IDisposable
                 //    Error = loginresponse.Message;
                 //}
 
+                Error = Strings.error_password;
+
                 return false;
             }
 
