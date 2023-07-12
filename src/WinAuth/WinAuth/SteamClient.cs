@@ -1032,7 +1032,7 @@ public partial class SteamClient : IDisposable
         var jsonObject = JsonSerializer.Deserialize(html, SteamJsonContext.Default.SteamMobileConfGetListJsonStruct);
 
         if (jsonObject?.Conf == null) return new SteamMobileTradeConf[] { };
-        
+
         // foreach (var item in jsonObject.Conf)
         // {
         //     var trade = new  Conf();
@@ -1116,7 +1116,7 @@ public partial class SteamClient : IDisposable
                 }
             }
         }
-
+        
         return jsonObject.Conf;
     }
 
@@ -1241,10 +1241,10 @@ public partial class SteamClient : IDisposable
             { "m", "react" },
             { "tag", conf },
         };
+        string? multiData = null;
         foreach (var item in trades)
         {
-            data.Add("cid[]", item.Key);
-            data.Add("ck[]", item.Value);
+            multiData += $"&cid[]={HttpUtility.UrlEncode(item.Key)}&ck[]={HttpUtility.UrlEncode(item.Value)}";
         }
         try
         {
@@ -1254,7 +1254,7 @@ public partial class SteamClient : IDisposable
             // 现在可单条请求处理多个交易 循环以下代码添加批量的 cid 和 ck 即可
             // data.Add("cid[]", id);
             // data.Add("ck[]", key);
-            string response = GetString(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data);
+            string response = GetString(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data, multiData: multiData);
 
             if (string.IsNullOrEmpty(response) == true)
             {
@@ -1354,11 +1354,12 @@ public partial class SteamClient : IDisposable
     /// <param name="method">GET or POST</param>
     /// <param name="formdata">optional form data</param>
     /// <param name="headers">optional headers</param>
+    /// <param name="multiData">为Query语句补充的MultiData数据</param>
     /// <returns>string of returned data</returns>
     //[Obsolete("use SendAsync")]
-    public string GetString(string url, string? method = null, NameValueCollection? formdata = null, NameValueCollection? headers = null)
+    public string GetString(string url, string? method = null, NameValueCollection? formdata = null, NameValueCollection? headers = null, string? multiData = null)
     {
-        var data = Request(url, method ?? "GET", formdata, headers);
+        var data = Request(url, method ?? "GET", formdata, headers, multiData);
         if (data == null || data.Length == 0)
         {
             return string.Empty;
@@ -1376,9 +1377,11 @@ public partial class SteamClient : IDisposable
     /// <param name="method">GET or POST</param>
     /// <param name="data">optional form data</param>
     /// <param name="headers">optional headers</param>
+    /// <param name="multiData">为Query语句补充的Multi数据</param>
     /// <returns>returned data</returns>
     //[Obsolete("use SendAsync")]
-    protected byte[]? Request(string url, string method, NameValueCollection? data, NameValueCollection? headers)
+    protected byte[]? Request(string url, string method, NameValueCollection? data, NameValueCollection? headers,
+        string? multiData = null)
     //{
     //    byte[]? responsedata;
     //    //try
@@ -1407,6 +1410,8 @@ public partial class SteamClient : IDisposable
             {
                 url += (!url.Contains('?', StringComparison.CurrentCulture) ? "?" : "&") + query;
             }
+
+            if (multiData != null) query += multiData;
 
             //var isForward = enableForward && TryGetForwardUrl(ref url);
 
