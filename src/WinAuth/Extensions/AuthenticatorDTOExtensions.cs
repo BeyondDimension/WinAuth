@@ -56,6 +56,14 @@ public static partial class AuthenticatorDTOExtensions
             dto.Platform = AuthenticatorPlatform.HOTP;
             dto.Counter = hOTPAuthenticator.Counter;
         }
+        else if (@this.Value is GoogleAuthenticator googleAuthenticator)
+        {
+            dto.Platform = AuthenticatorPlatform.Google;
+        }
+        else if (@this.Value is MicrosoftAuthenticator microsoftAuthenticator)
+        {
+            dto.Platform = AuthenticatorPlatform.Microsoft;
+        }
 
         dto.SecretKey = @this.Value.SecretKey;
 

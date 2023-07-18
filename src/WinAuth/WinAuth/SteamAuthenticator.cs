@@ -28,6 +28,8 @@ namespace WinAuth;
 [MPObj(keyAsPropertyName: true)]
 public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 {
+    HttpClient _httpClient;
+    
     /// <summary>
     /// Number of characters in code
     /// </summary>
@@ -45,6 +47,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     public SteamAuthenticator() : base(CODE_DIGITS)
     {
         Issuer = STEAM_ISSUER;
+        HttpClientHandler handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+            MaxAutomaticRedirections = 1000,
+        };
+        _httpClient = new HttpClient(handler);
     }
 
     [IgnoreDataMember]
@@ -355,20 +364,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         //});
         // call the server
         //HttpWebRequest request = GeneralHttpClientFactory(url);
-        HttpClientHandler handler = new HttpClientHandler
-        {
-            AllowAutoRedirect = true,
-            //抓包分析需注释
-            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
-            MaxAutomaticRedirections = 1000,
-        };
-        if (cookies != null)
-        {
-            handler.UseCookies = true;
-            handler.CookieContainer = cookies;
-        }
-
-        using HttpClient httpClient = new HttpClient(handler);
+        
+        using var httpClient = _httpClient;
         httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
         httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
         //httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");

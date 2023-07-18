@@ -450,6 +450,8 @@ public partial class SteamClient : IDisposable
     /// Number of Confirmation retries
     /// </summary>
     public int ConfirmationPollerRetries = DEFAULT_CONFIRMATIONPOLLER_RETRIES;
+    
+    HttpClient _httpClient;
 
     /// <summary>
     /// Create a new SteamClient
@@ -474,6 +476,19 @@ public partial class SteamClient : IDisposable
                 });
             }
         }
+        HttpClientHandler handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+            MaxAutomaticRedirections = 1000,
+        };
+        if (Session.Cookies != null)
+        {
+            handler.UseCookies = true;
+            handler.CookieContainer = Session.Cookies;
+        }
+
+        _httpClient = new HttpClient(handler);
     }
 
     /// <summary>
@@ -1416,19 +1431,8 @@ public partial class SteamClient : IDisposable
             //var isForward = enableForward && TryGetForwardUrl(ref url);
 
             // call the server
-            HttpClientHandler handler = new HttpClientHandler
-            {
-                AllowAutoRedirect = true,
-                //抓包分析需注释
-                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
-                MaxAutomaticRedirections = 1000,
-            };
-            if (Session.Cookies != null)
-            {
-                handler.UseCookies = true;
-                handler.CookieContainer = Session.Cookies;
-            }
-            using HttpClient httpClient = new HttpClient(handler);
+
+            using var httpClient = _httpClient;
             httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
             httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
