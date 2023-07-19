@@ -489,6 +489,12 @@ public partial class SteamClient : IDisposable
         }
 
         _httpClient = new HttpClient(handler);
+        _httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+        _httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+        //httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
+        _httpClient.Timeout = new TimeSpan(0, 0, 45);
+        _httpClient.DefaultRequestHeaders.ExpectContinue = false;
     }
 
     /// <summary>
@@ -1433,12 +1439,6 @@ public partial class SteamClient : IDisposable
             // call the server
 
             using var httpClient = _httpClient;
-            httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
-            httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
-            //httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
-            httpClient.Timeout = new TimeSpan(0, 0, 45);
-            httpClient.DefaultRequestHeaders.ExpectContinue = false;
             if (headers != null)
             {
                 for (int i = 0; i < headers.Count; i++)

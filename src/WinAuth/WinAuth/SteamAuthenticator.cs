@@ -21,6 +21,7 @@ using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
 using System.Collections.Specialized;
 using static WinAuth.SteamClient.Utils;
+using Exception = System.Exception;
 
 namespace WinAuth;
 
@@ -54,6 +55,12 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             MaxAutomaticRedirections = 1000,
         };
         _httpClient = new HttpClient(handler);
+        _httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+        _httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+        //httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent.Default);
+        _httpClient.Timeout = new TimeSpan(0, 0, 30);
+        _httpClient.DefaultRequestHeaders.ExpectContinue = false;
     }
 
     [IgnoreDataMember]
@@ -366,23 +373,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         //HttpWebRequest request = GeneralHttpClientFactory(url);
         
         using var httpClient = _httpClient;
-        httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
-        httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-        //httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
-        httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent.Default);
-        httpClient.Timeout = new TimeSpan(0, 0, 45);
-        httpClient.DefaultRequestHeaders.ExpectContinue = false;
+        
         if (headers != null)
         {
             for (int i = 0; i < headers.Count; i++)
             {
                 httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i].ThrowIsNull(), headers.Get(i));
             }
-        }
-
-        if (timeout != 0)
-        {
-            httpClient.Timeout = new TimeSpan(0, 0, 0, 0, timeout);
         }
 
         try
@@ -1012,11 +1009,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             // clear any sync error
             _lastSyncError = DateTime.MinValue;
         }
-        catch
+        catch (Exception e)
         {
             // don't retry for a while after error
             _lastSyncError = DateTime.Now;
-            throw;
+            //throw;
             // set to zero to force reset
             //ServerTimeDiff = 0;
         }
