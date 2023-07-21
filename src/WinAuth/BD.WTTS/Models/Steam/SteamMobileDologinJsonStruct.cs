@@ -1,4 +1,5 @@
 namespace BD.WTTS.Models;
+
 public class SteamMobileDologinJsonStruct
 {
     [JsonPropertyName("success")]
@@ -15,7 +16,6 @@ public class SteamMobileDologinJsonStruct
 
     [JsonPropertyName("transfer_parameters")]
     public Transfer_Parameters? TransferParameters { get; set; }
-
 }
 
 public class Transfer_Parameters
