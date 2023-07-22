@@ -372,7 +372,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         // call the server
         //HttpWebRequest request = GeneralHttpClientFactory(url);
         
-        using var httpClient = _httpClient;
+        var httpClient = _httpClient;
         
         if (headers != null)
         {

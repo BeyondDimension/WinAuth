@@ -1437,8 +1437,7 @@ public partial class SteamClient : IDisposable
             //var isForward = enableForward && TryGetForwardUrl(ref url);
 
             // call the server
-
-            using var httpClient = _httpClient;
+            var httpClient = _httpClient;
             if (headers != null)
             {
                 for (int i = 0; i < headers.Count; i++)
