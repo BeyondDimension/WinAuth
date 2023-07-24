@@ -48,5 +48,5 @@ public class SteamMobileTradeConf
     public string[]? Summary { get; set; }
     
     [JsonPropertyName("warn")]
-    public string? Warn { get; set; }
+    public string[]? Warn { get; set; }
 }
