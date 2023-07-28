@@ -565,6 +565,8 @@ public partial class SteamClient : IDisposable
                 handler.CookieContainer = Session.Cookies;
             }
         }
+        else
+            Session = new SteamSession(session);
 
         _httpClient = new HttpClient(handler);
         _httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
