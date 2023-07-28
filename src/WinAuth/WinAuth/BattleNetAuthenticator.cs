@@ -18,6 +18,7 @@
 
 #pragma warning disable CA2211 // Non-constant fields should not be visible
 
+using BD.WTTS.Models;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Engines;
@@ -137,18 +138,6 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
     const string REGION_EU = "EU";
     const string REGION_KR = "KR";
     const string REGION_CN = "CN";
-    public static Dictionary<string, string> MOBILE_URLS = new()
-    {
-        { REGION_US, "http://mobile-service.blizzard.com" },
-        { REGION_EU, "http://mobile-service.blizzard.com" },
-        { REGION_KR, "http://mobile-service.blizzard.com" },
-        { REGION_CN, "http://mobile-service.battlenet.com.cn" },
-    };
-
-    const string ENROLL_PATH = "/enrollment/enroll2.htm";
-    const string SYNC_PATH = "/enrollment/time.htm";
-    const string RESTORE_PATH = "/enrollment/initiatePaperRestore.htm";
-    const string RESTOREVALIDATE_PATH = "/enrollment/validatePaperRestore.htm";
 
     /// <summary>
     /// Set of ISO3166 EU countries
@@ -221,11 +210,6 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
     };
 
     /// <summary>
-    /// URL for GEO IP lookup to determine region
-    /// </summary>
-    static readonly string GEOIPURL = "http://geoiplookup.wikimedia.org";
-
-    /// <summary>
     /// Time of last Sync error
     /// </summary>
     static DateTime _lastSyncError = DateTime.MinValue;
@@ -242,17 +226,10 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         // Battle.net does a GEO IP lookup anyway so there is no need to pass the region
         // however China has its own URL so we must still do our own GEO IP lookup to find the country
 
-        var requestMessage = new HttpRequestMessage(HttpMethod.Get, GEOIPURL)
-        {
-            Content = new StringContent(string.Empty, Encoding.UTF8, "application/json"),
-        };
-        using var httpClient = new HttpClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(10);
-        // get response
         string? responseString = null;
         try
         {
-            using var georesponse = await httpClient.SendAsync(requestMessage);
+            using var georesponse = await AuthenticatorNetService.BattleNet.GEOIP();
             // OK?
             if (georesponse.StatusCode == HttpStatusCode.OK)
             {
@@ -345,13 +322,7 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         byte[]? responseData = null;
         try
         {
-            requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(region) + ENROLL_PATH)
-            {
-                Content = new StringContent(Encoding.UTF8.GetString(encrypted, 0, encrypted.Length), Encoding.UTF8, "application/octet-stream"),
-            };
-            requestMessage.Content.Headers.ContentLength = encrypted.Length;
-
-            var response = await httpClient.SendAsync(requestMessage);
+            var response = await AuthenticatorNetService.BattleNet.EnRoll(region, encrypted);
 
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
@@ -451,13 +422,9 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         try
         {
             // create a connection to time sync server
-            var requestMessage = new HttpRequestMessage(HttpMethod.Get, GetMobileUrl(Region) + SYNC_PATH);
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(5);
-
             // get response
             byte[]? responseData = null;
-            using (var response = httpClient.Send(requestMessage))
+            using (var response = AuthenticatorNetService.BattleNet.Sync(Region))
             {
                 // OK?
                 if (response.StatusCode != HttpStatusCode.OK)
@@ -523,17 +490,11 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         var serialBytes = Encoding.UTF8.GetBytes(serial.ToUpper().Replace("-", string.Empty));
 
         // send the request to the server to get our challenge
-        var requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTORE_PATH)
-        {
-            Content = new StringContent(Encoding.UTF8.GetString(serialBytes, 0, serialBytes.Length), Encoding.UTF8, "application/octet-stream"),
-        };
-        requestMessage.Content.Headers.ContentLength = serialBytes.Length;
-        using var httpClient = new HttpClient();
 
         byte[]? challenge = null;
         try
         {
-            using var response = await httpClient.SendAsync(requestMessage);
+            using var response = await AuthenticatorNetService.BattleNet.ReStore(serial, serialBytes);
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
             {
@@ -607,16 +568,11 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
         Array.Copy(encrypted, 0, postbytes, serialBytes.Length, encrypted.Length);
 
         // send the challenge response back to the server
-        requestMessage = new HttpRequestMessage(HttpMethod.Post, GetMobileUrl(serial) + RESTOREVALIDATE_PATH)
-        {
-            Content = new StringContent(Encoding.UTF8.GetString(postbytes, 0, postbytes.Length), Encoding.UTF8, "application/octet-stream"),
-        };
-        requestMessage.Content.Headers.ContentLength = postbytes.Length;
 
         byte[]? secretKey = null;
         try
         {
-            using var response = await httpClient.SendAsync(requestMessage);
+            using var response = await AuthenticatorNetService.BattleNet.ReStoreValidate(serial, postbytes);
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
             {
@@ -709,28 +665,6 @@ public sealed partial class BattleNetAuthenticator : AuthenticatorValueDTO
             writer.WriteStartElement("restorecodeverified");
             writer.WriteString(bool.TrueString.ToLower());
             writer.WriteEndElement();
-        }
-    }
-
-    /// <summary>
-    /// Get the base mobil url based on the region
-    /// </summary>
-    /// <param name="region">two letter region code, i.e US or CN</param>
-    /// <returns>string of Url for region</returns>
-    private static string GetMobileUrl(string region)
-    {
-        var upperregion = region.ToUpper();
-        if (upperregion.Length > 2)
-        {
-            upperregion = upperregion[..2];
-        }
-        if (MOBILE_URLS.ContainsKey(upperregion) == true)
-        {
-            return MOBILE_URLS[upperregion];
-        }
-        else
-        {
-            return MOBILE_URLS[REGION_US];
         }
     }
 

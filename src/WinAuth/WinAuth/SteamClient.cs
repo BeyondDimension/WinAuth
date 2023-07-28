@@ -28,6 +28,48 @@ namespace WinAuth;
 /// </summary>
 public partial class SteamClient : IDisposable
 {
+    /// <summary>
+    /// URLs for all mobile services
+    /// </summary>
+    const string COMMUNITY_DOMAIN = "steamcommunity.com";
+    const string COMMUNITY_BASE = "https://" + COMMUNITY_DOMAIN;
+    const string WEBAPI_BASE = "https://api.steampowered.com";
+    const string API_GETWGTOKEN = WEBAPI_BASE + "/IMobileAuthService/GetWGToken/v0001";
+    const string API_LOGOFF = WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logoff/v0001";
+    //const string API_LOGON = WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001";
+    const string SYNC_URL = "https://api.steampowered.com/ITwoFactorService/QueryTime/v0001";
+
+    /// <summary>
+    /// Time for http request when calling Sync in ms
+    /// </summary>
+    const int SYNC_TIMEOUT = 30000;
+
+    /// <summary>
+    /// Default mobile user agent
+    /// </summary>
+    const string USERAGENT = "Mozilla/5.0 (Linux; Android 8.1.0; Nexus 5X Build/OPM7.181205.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36";
+
+    /// <summary>
+    /// Number of Confirmation retries
+    /// </summary>
+    const int DEFAULT_CONFIRMATIONPOLLER_RETRIES = 3;
+
+    /// <summary>
+    /// Delay between trade confirmation events
+    /// </summary>
+    public const int CONFIRMATION_EVENT_DELAY = 1000;
+
+    /// <summary>
+    /// Action for Confirmation polling
+    /// </summary>
+    public enum PollerAction
+    {
+        None = 0,
+        Notify = 1,
+        AutoConfirm = 2,
+        SilentAutoConfirm = 3,
+    }
+
     internal static class Utils
     {
         #region 弃用方法
@@ -79,66 +121,6 @@ public partial class SteamClient : IDisposable
         }
 
         public const string donotache_value = "-62135596800000"; // default(DateTime).ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds.ToString();
-    }
-
-    /// <summary>
-    /// URLs for all mobile services
-    /// </summary>
-    const string COMMUNITY_DOMAIN = "steamcommunity.com";
-    const string COMMUNITY_BASE = "https://" + COMMUNITY_DOMAIN;
-    const string WEBAPI_BASE = "https://api.steampowered.com";
-    const string API_GETWGTOKEN = WEBAPI_BASE + "/IMobileAuthService/GetWGToken/v0001";
-    const string API_LOGOFF = WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logoff/v0001";
-    //const string API_LOGON = WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001";
-
-    /// <summary>
-    /// Default mobile user agent
-    /// </summary>
-    const string USERAGENT = "Mozilla/5.0 (Linux; Android 8.1.0; Nexus 5X Build/OPM7.181205.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36";
-
-    // /// <summary>
-    // /// Regular expressions for trade confirmations
-    // /// </summary>
-    // static readonly Regex _tradesRegex = TradesRegexRegex();
-    // static readonly Regex _tradeConfidRegex = TradeConfidRegex();
-    // static readonly Regex _tradeKeyRegex = TradeKeyRegexRegex();
-    // static readonly Regex _tradePlayerRegex = TradePlayerRegex();
-    // static readonly Regex _tradeDetailsRegex = TtradeDetailsRegex();
-    //
-    // [GeneratedRegex("\"mobileconf_list_entry\"(.*?)>(.*?)\"mobileconf_list_entry_sep\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    // private static partial Regex TradesRegexRegex();
-    //
-    // [GeneratedRegex("data-confid\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    // private static partial Regex TradeConfidRegex();
-    //
-    // [GeneratedRegex("data-key\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    // private static partial Regex TradeKeyRegexRegex();
-    //
-    // [GeneratedRegex("\"mobileconf_list_entry_icon\"(.*?)src=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    // private static partial Regex TradePlayerRegex();
-    //
-    // [GeneratedRegex("\"mobileconf_list_entry_description\".*?<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*</div>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    // private static partial Regex TtradeDetailsRegex();
-
-    /// <summary>
-    /// Number of Confirmation retries
-    /// </summary>
-    const int DEFAULT_CONFIRMATIONPOLLER_RETRIES = 3;
-
-    /// <summary>
-    /// Delay between trade confirmation events
-    /// </summary>
-    public const int CONFIRMATION_EVENT_DELAY = 1000;
-
-    /// <summary>
-    /// Action for Confirmation polling
-    /// </summary>
-    public enum PollerAction
-    {
-        None = 0,
-        Notify = 1,
-        AutoConfirm = 2,
-        SilentAutoConfirm = 3,
     }
 
     /// <summary>
@@ -195,6 +177,7 @@ public partial class SteamClient : IDisposable
         }
 
         #region 弃用方法
+
         ///// <summary>
         ///// Create a new ConfirmationPoller from a JSON string
         ///// </summary>
@@ -422,7 +405,7 @@ public partial class SteamClient : IDisposable
     /// <summary>
     /// Current session
     /// </summary>
-    public SteamSession Session;
+    public SteamSession? Session;
 
     /// <summary>
     /// Current authenticator
@@ -450,51 +433,42 @@ public partial class SteamClient : IDisposable
     /// Number of Confirmation retries
     /// </summary>
     public int ConfirmationPollerRetries = DEFAULT_CONFIRMATIONPOLLER_RETRIES;
-    
-    HttpClient _httpClient;
+
+    HttpClient? _httpClient;
+
+    /// <summary>
+    /// Delegate for Confirmation event
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="newconfirmation">new Confirmation</param>
+    /// <param name="action">action to be taken</param>
+    public delegate void ConfirmationDelegate(object sender, SteamMobileTradeConf newconfirmation, PollerAction action);
+
+    /// <summary>
+    /// Delegate for Confirmation error
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="message">error message</param>
+    /// <param name="action"></param>
+    /// <param name="ex">optional exception</param>
+    public delegate void ConfirmationErrorDelegate(object sender, string message, PollerAction action, Exception ex);
+
+    /// <summary>
+    /// Event fired for new Confirmation
+    /// </summary>
+    public event ConfirmationDelegate? ConfirmationEvent;
+
+    /// <summary>
+    /// Event fired for error on polling
+    /// </summary>
+    public event ConfirmationErrorDelegate? ConfirmationErrorEvent;
 
     /// <summary>
     /// Create a new SteamClient
     /// </summary>
-    public SteamClient(SteamAuthenticator auth, string? session = null)
+    public SteamClient(SteamAuthenticator auth)
     {
         Authenticator = auth;
-        Session = new SteamSession(session);
-
-        if (Session.Confirmations != null)
-        {
-            if (IsLoggedIn() == false)
-            {
-                Session.Confirmations = null;
-            }
-            else
-            {
-                Task.Factory.StartNew(() =>
-                {
-                    //Refresh();
-                    PollConfirmations(Session.Confirmations);
-                });
-            }
-        }
-        HttpClientHandler handler = new HttpClientHandler
-        {
-            AllowAutoRedirect = true,
-            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
-            MaxAutomaticRedirections = 1000,
-        };
-        if (Session.Cookies != null)
-        {
-            handler.UseCookies = true;
-            handler.CookieContainer = Session.Cookies;
-        }
-
-        _httpClient = new HttpClient(handler);
-        _httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
-        _httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
-        //httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
-        _httpClient.Timeout = new TimeSpan(0, 0, 45);
-        _httpClient.DefaultRequestHeaders.ExpectContinue = false;
     }
 
     /// <summary>
@@ -502,6 +476,7 @@ public partial class SteamClient : IDisposable
     /// </summary>
     ~SteamClient()
     {
+        _httpClient?.Dispose();
         Dispose(false);
     }
 
@@ -535,7 +510,7 @@ public partial class SteamClient : IDisposable
     /// <summary>
     /// Clear the client state
     /// </summary>
-    public void Clear()
+    protected void Clear()
     {
         InvalidLogin = false;
         RequiresCaptcha = false;
@@ -547,6 +522,57 @@ public partial class SteamClient : IDisposable
         Error = null;
 
         Session.Clear();
+    }
+
+    #region Public
+
+    /// <summary>
+    /// Session Set
+    /// </summary>
+    /// <param name="session"></param>
+    public void SessionSet(string? session = null)
+    {
+        HttpHandlerType handler = new HttpHandlerType()
+        {
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+            MaxAutomaticRedirections = 1000,
+        };
+
+        if (!string.IsNullOrEmpty(session))
+        {
+            Session = new SteamSession(session);
+
+            if (Session.Confirmations != null)
+            {
+                if (IsLoggedIn() == false)
+                {
+                    Session.Confirmations = null;
+                }
+                else
+                {
+                    Task.Factory.StartNew(() =>
+                    {
+                        //Refresh();
+                        PollConfirmations(Session.Confirmations);
+                    });
+                }
+            }
+
+            if (Session.Cookies != null)
+            {
+                handler.UseCookies = true;
+                handler.CookieContainer = Session.Cookies;
+            }
+        }
+
+        _httpClient = new HttpClient(handler);
+        _httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+        _httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+        //httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
+        _httpClient.Timeout = new TimeSpan(0, 0, 45);
+        _httpClient.DefaultRequestHeaders.ExpectContinue = false;
     }
 
     /// <summary>
@@ -610,7 +636,7 @@ public partial class SteamClient : IDisposable
             if (rsaresponse.Success != true)
             {
                 InvalidLogin = true;
-                Error = Strings.error_password;
+                Error = Strings.Error_Password;
                 return false;
             }
 
@@ -702,7 +728,7 @@ public partial class SteamClient : IDisposable
                 //    Error = loginresponse.Message;
                 //}
 
-                Error = Strings.error_password;
+                Error = Strings.Error_Password;
 
                 return false;
             }
@@ -757,132 +783,6 @@ public partial class SteamClient : IDisposable
         }
 
         Clear();
-    }
-
-    // /// <summary>
-    // /// Refresh the login session cookies from the OAuth code
-    // /// </summary>
-    // /// <returns>true if successful</returns>
-    //[Obsolete("use RefreshAsync")]
-    // public bool Refresh()
-    // {
-    //     try
-    //     {
-    //         var data = new NameValueCollection
-    //         {
-    //             { "access_token", Session.OAuthToken },
-    //         };
-    //         string response = GetString(API_GETWGTOKEN, "POST", data);
-    //         if (string.IsNullOrEmpty(response) == true)
-    //         {
-    //             return false;
-    //         }
-    //
-    //         var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamRefreshJsonStruct);
-    //         jsonobj.ThrowIsNull();
-    //         if (jsonobj.Token == string.Empty)
-    //         {
-    //             return false;
-    //         }
-    //         var cookieuri = new Uri(COMMUNITY_BASE + "/");
-    //         Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + jsonobj.Token));
-    //
-    //         if (jsonobj.TokenSecure == string.Empty)
-    //         {
-    //             return false;
-    //         }
-    //         Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + jsonobj.TokenSecure));
-    //
-    //         // perform UMQ login
-    //         //response = GetString(API_LOGON, "POST", data);
-    //         //var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
-    //         //if (loginresponse.ContainsKey("umqid") == true)
-    //         //{
-    //         //	this.Session.UmqId = (string)loginresponse["umqid"];
-    //         //	if (loginresponse.ContainsKey("message") == true)
-    //         //	{
-    //         //		this.Session.MessageId = Convert.ToInt32(loginresponse["message"]);
-    //         //	}
-    //         //}
-    //
-    //         return true;
-    //     }
-    //     catch (Exception)
-    //     {
-    //         return false;
-    //     }
-    // }
-
-    ///// <summary>
-    ///// Perform a UMQ login
-    ///// </summary>
-    ///// <returns></returns>
-    ////[Obsolete("use UmqLoginAsync")]
-    //[Obsolete("0 references", true)]
-    //bool UmqLogin()
-    //{
-    //    if (IsLoggedIn() == false)
-    //    {
-    //        return false;
-    //    }
-
-    //    var data = new NameValueCollection();
-    //    data.Add("access_token", this.Session.OAuthToken);
-    //    var response = GetString(API_LOGON, "POST", data);
-    //    var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
-    //    if (loginresponse.ContainsKey("umqid") == true)
-    //    {
-    //        Session.UmqId = (string)loginresponse["umqid"];
-    //        if (loginresponse.ContainsKey("message") == true)
-    //        {
-    //            Session.MessageId = Convert.ToInt32(loginresponse["message"]);
-    //        }
-
-    //        return true;
-    //    }
-
-    //    return false;
-    //}
-
-    /// <summary>
-    /// Delegate for Confirmation event
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="newconfirmation">new Confirmation</param>
-    /// <param name="action">action to be taken</param>
-    public delegate void ConfirmationDelegate(object sender, SteamMobileTradeConf newconfirmation, PollerAction action);
-
-    /// <summary>
-    /// Delegate for Confirmation error
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="message">error message</param>
-    /// <param name="action"></param>
-    /// <param name="ex">optional exception</param>
-    public delegate void ConfirmationErrorDelegate(object sender, string message, PollerAction action, Exception ex);
-
-    /// <summary>
-    /// Event fired for new Confirmation
-    /// </summary>
-    public event ConfirmationDelegate? ConfirmationEvent;
-
-    /// <summary>
-    /// Event fired for error on polling
-    /// </summary>
-    public event ConfirmationErrorDelegate? ConfirmationErrorEvent;
-
-    /// <summary>
-    /// Stop the current poller
-    /// </summary>
-    protected void PollConfirmationsStop()
-    {
-        // kill any existing poller
-        if (_pollerCancellation != null)
-        {
-            _pollerCancellation.Cancel();
-            _pollerCancellation = null;
-        }
-        Session.Confirmations = null;
     }
 
     /// <summary>
@@ -1137,17 +1037,10 @@ public partial class SteamClient : IDisposable
                 }
             }
         }
-        
+
         return jsonObject.Conf;
     }
 
-    string? GetSelfIconUrlFromConfirmationDetails(string html)
-    {
-        var regex = GetSelfIconUrlFromConfirmationDetailsRegex().Match(html);
-        var result = regex.Groups[1].Value;
-        return result.Insert(result.IndexOf(".jpg", StringComparison.Ordinal), "_full");
-    }
-    
     public (string[] receiveItems, string[] sendItems) GetConfirmationItemImageUrls(string tradeId)
     {
         string url = COMMUNITY_BASE + "/mobileconf/details/" + tradeId + "?" + ConfirmationsQuery;
@@ -1160,18 +1053,18 @@ public partial class SteamClient : IDisposable
 
         var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
         jsonobj.ThrowIsNull();
-        
+
         List<string> sendItems = new();
         List<string> receiveItems = new();
-        
+
         if (jsonobj.Success == true)
         {
             SteamUserImageUrl = GetSelfIconUrlFromConfirmationDetails(jsonobj.Html);
-            
+
             var masterRegex = ConfirmationItemImageUrlsRegex().Matches(jsonobj.Html);
             foreach (Match items in masterRegex)
             {
-                if (items.Success != true) throw new Exception("获取交易报价图片imageUrl失败");
+                if (items.Success != true) throw new Exception(Strings.Error_GetQuoteTradingImage);
                 var itemUrls = ConfirmationItemImageUrlsGetRegex().Matches(items.Groups[1].Value);
                 if (items.Groups[0].Value.Contains("您的报价"))
                 {
@@ -1192,39 +1085,6 @@ public partial class SteamClient : IDisposable
 
         return (receiveItems.ToArray(), sendItems.ToArray());
     }
-
-    // /// <summary>
-    // /// Get details for an individual Confirmation
-    // /// </summary>
-    // /// <param name="trade">trade Confirmation</param>
-    // /// <returns>html string of details</returns>
-    // //[Obsolete("use GetConfirmationDetailsAsync")]
-    // //[Obsolete("0 references", true)]
-    // public string GetConfirmationDetails(Confirmation trade)
-    // {
-    //     // build details URL
-    //     string url = COMMUNITY_BASE + "/mobileconf/details/" + trade.Id + "?" + ConfirmationsQuery;
-    //
-    //     string response = GetString(url);
-    //     if (!response.Contains("success", StringComparison.OrdinalIgnoreCase))
-    //     {
-    //         throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
-    //     }
-    //     var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
-    //     jsonobj.ThrowIsNull();
-    //     if (jsonobj.Success == true)
-    //     {
-    //         ConfirmationsHtml.ThrowIsNull();
-    //         Regex detailsRegex = ConfirmationDetailsRegex();
-    //         var match = detailsRegex.Match(ConfirmationsHtml);
-    //         if (match.Success == true)
-    //         {
-    //             return match.Groups[1].Value + jsonobj.Html + match.Groups[2].Value;
-    //         }
-    //     }
-    //
-    //     return $"<html><head></head><body><p>{jsonobj.Html}</p></body></html>";
-    // }
 
     /// <summary>
     /// Confirm or reject a specific trade confirmation
@@ -1316,40 +1176,202 @@ public partial class SteamClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// Create the hash needed for the confirmations query string
-    /// </summary>
-    /// <param name="time">current time</param>
-    /// <param name="tag">tag</param>
-    /// <param name="secret">identity secret</param>
-    /// <returns>hash string</returns>
-    static string CreateTimeHash(long time, string tag, string secret)
+    public async Task CheckCookiesAsync(CookieContainer? cookies, string? language)
     {
-        byte[] b64secret = Base64Extensions.Base64DecodeToByteArray(secret);
-
-        int bufferSize = 8;
-        if (string.IsNullOrEmpty(tag) == false)
+        // get session
+        if (cookies == null || cookies.Count == 0)
         {
-            bufferSize += Math.Min(32, tag.Length);
-        }
-        byte[] buffer = new byte[bufferSize];
+            cookies = new CookieContainer();
+            cookies.Add(new Uri(COMMUNITY_BASE + "/"), new Cookie("mobileClientVersion", "3067969+%282.1.3%29"));
+            cookies.Add(new Uri(COMMUNITY_BASE + "/"), new Cookie("mobileClient", "android"));
+            cookies.Add(new Uri(COMMUNITY_BASE + "/"), new Cookie("steamid", ""));
+            cookies.Add(new Uri(COMMUNITY_BASE + "/"), new Cookie("steamLogin", ""));
+            cookies.Add(new Uri(COMMUNITY_BASE + "/"), new Cookie("Steam_Language", language));
+            cookies.Add(new Uri(COMMUNITY_BASE + "/"), new Cookie("dob", ""));
 
-        byte[] timeArray = BitConverter.GetBytes(time);
-        if (BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(timeArray);
-        }
-        Array.Copy(timeArray, buffer, 8);
-        if (string.IsNullOrEmpty(tag) == false)
-        {
-            Array.Copy(Encoding.UTF8.GetBytes(tag), 0, buffer, 8, bufferSize - 8);
-        }
+            var headers = new NameValueCollection
+            {
+                { "X-Requested-With", "com.valvesoftware.android.steam.community" },
+            };
 
-        var hmac = new HMACSHA1(b64secret);
-        byte[] hash = hmac.ComputeHash(buffer);
-
-        return Convert.ToBase64String(hash, Base64FormattingOptions.None);
+            _ = await RequestAsync(
+                "https://steamcommunity.com/login?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client",
+                "GET", null, cookies, headers);
+        }
     }
+
+    public async Task<string> GetRSAKeyAsync(string donotache, string username, CookieContainer? cookies)
+    {
+        NameValueCollection data = new()
+        {
+            { "donotache", donotache },
+            { "username", username }
+        };
+        return await RequestAsync(COMMUNITY_BASE + "/login/getrsakey", "POST", data, cookies);
+    }
+
+    public async Task<string> AddAuthenticatorAsync(string? steamid, string authenticator_time, string? device_identifier, string access_token, string authenticator_type = "1", string sms_phone_id = "1")
+    {
+        var data = new NameValueCollection();
+        data.Add("steamid", steamid);
+        data.Add("authenticator_time", authenticator_time);
+        data.Add("authenticator_type", authenticator_type);
+        data.Add("device_identifier", device_identifier);
+        data.Add("sms_phone_id", sms_phone_id);
+        const string url_ITwoFactorService_AddAuthenticator_v0001 = "/ITwoFactorService/AddAuthenticator/v1";
+        return await RequestAsync(
+            WEBAPI_BASE + url_ITwoFactorService_AddAuthenticator_v0001 + $"/?access_token={access_token}",
+            "POST", data);
+    }
+
+    public async Task<string> FinalizeAddAuthenticatorAsync(string? steamid, string? activation_code, string authenticator_code, string authenticator_time, string access_token, string validate_sms_code = "1")
+    {
+        var data = new NameValueCollection();
+        data.Add("steamid", steamid);
+        data.Add("activation_code", activation_code);
+        data.Add("validate_sms_code", validate_sms_code);
+        data.Add("authenticator_code", authenticator_code);
+        data.Add("authenticator_time", authenticator_time);
+        return await RequestAsync(
+                WEBAPI_BASE + $"/ITwoFactorService/FinalizeAddAuthenticator/v1/?access_token={access_token}",
+                "POST",
+                data);
+    }
+
+    public async Task<string> GetUserCountry(string access_token, string steamid)
+    {
+        var data = new NameValueCollection();
+        data.Add("steamid", steamid);
+        return await RequestAsync(WEBAPI_BASE + $"/IUserAccountService/GetUserCountry/v1?access_token={access_token}",
+                "POST", data);
+    }
+
+    public async Task<string> AddPhoneNumberAsync(string phone_number, string? contury_code, string access_token)
+    {
+        var data = new NameValueCollection();
+        data.Add("phone_number", phone_number);
+        data.Add("phone_country_code", contury_code);
+        return await RequestAsync(
+                    WEBAPI_BASE + $"/IPhoneService/SetAccountPhoneNumber/v1?access_token={access_token}", "POST",
+                    data);
+    }
+
+    public async Task<string> AccountWaitingForEmailConfirmation(string access_token)
+    {
+        return await RequestAsync(
+            WEBAPI_BASE + $"/IPhoneService/IsAccountWaitingForEmailConfirmation/v1?access_token={access_token}",
+            "POST");
+    }
+
+    public async Task<string> SendPhoneVerificationCode(string access_token)
+    {
+        return await RequestAsync(
+                WEBAPI_BASE + $"/IPhoneService/SendPhoneVerificationCode/v1?access_token={access_token}",
+                "POST");
+    }
+
+    public async Task<string> RemoveAuthenticatorAsync(string? revocation_code, string steamguard_scheme, string access_token, string revocation_reason = "1")
+    {
+        var data = new NameValueCollection();
+        data.Add("revocation_code", revocation_code ?? throw new Exception("恢复代码为null"));
+        data.Add("revocation_reason", "1");
+        data.Add("steamguard_scheme", steamguard_scheme);
+        return await RequestAsync(WEBAPI_BASE + $"/ITwoFactorService/RemoveAuthenticator/v1?access_token={access_token}", "POST",
+                data);
+    }
+
+    public async Task<string> TwoFAQueryTime()
+    {
+        return await RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
+    }
+
+    // /// <summary>
+    // /// Get details for an individual Confirmation
+    // /// </summary>
+    // /// <param name="trade">trade Confirmation</param>
+    // /// <returns>html string of details</returns>
+    // //[Obsolete("use GetConfirmationDetailsAsync")]
+    // //[Obsolete("0 references", true)]
+    // public string GetConfirmationDetails(Confirmation trade)
+    // {
+    //     // build details URL
+    //     string url = COMMUNITY_BASE + "/mobileconf/details/" + trade.Id + "?" + ConfirmationsQuery;
+    //
+    //     string response = GetString(url);
+    //     if (!response.Contains("success", StringComparison.OrdinalIgnoreCase))
+    //     {
+    //         throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
+    //     }
+    //     var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetConfirmationJsonStruct);
+    //     jsonobj.ThrowIsNull();
+    //     if (jsonobj.Success == true)
+    //     {
+    //         ConfirmationsHtml.ThrowIsNull();
+    //         Regex detailsRegex = ConfirmationDetailsRegex();
+    //         var match = detailsRegex.Match(ConfirmationsHtml);
+    //         if (match.Success == true)
+    //         {
+    //             return match.Groups[1].Value + jsonobj.Html + match.Groups[2].Value;
+    //         }
+    //     }
+    //
+    //     return $"<html><head></head><body><p>{jsonobj.Html}</p></body></html>";
+    // }
+
+    // /// <summary>
+    // /// Refresh the login session cookies from the OAuth code
+    // /// </summary>
+    // /// <returns>true if successful</returns>
+    //[Obsolete("use RefreshAsync")]
+    // public bool Refresh()
+    // {
+    //     try
+    //     {
+    //         var data = new NameValueCollection
+    //         {
+    //             { "access_token", Session.OAuthToken },
+    //         };
+    //         string response = GetString(API_GETWGTOKEN, "POST", data);
+    //         if (string.IsNullOrEmpty(response) == true)
+    //         {
+    //             return false;
+    //         }
+    //
+    //         var jsonobj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamRefreshJsonStruct);
+    //         jsonobj.ThrowIsNull();
+    //         if (jsonobj.Token == string.Empty)
+    //         {
+    //             return false;
+    //         }
+    //         var cookieuri = new Uri(COMMUNITY_BASE + "/");
+    //         Session.Cookies.Add(cookieuri, new Cookie("steamLogin", Session.SteamId + "||" + jsonobj.Token));
+    //
+    //         if (jsonobj.TokenSecure == string.Empty)
+    //         {
+    //             return false;
+    //         }
+    //         Session.Cookies.Add(cookieuri, new Cookie("steamLoginSecure", Session.SteamId + "||" + jsonobj.TokenSecure));
+    //
+    //         // perform UMQ login
+    //         //response = GetString(API_LOGON, "POST", data);
+    //         //var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+    //         //if (loginresponse.ContainsKey("umqid") == true)
+    //         //{
+    //         //	this.Session.UmqId = (string)loginresponse["umqid"];
+    //         //	if (loginresponse.ContainsKey("message") == true)
+    //         //	{
+    //         //		this.Session.MessageId = Convert.ToInt32(loginresponse["message"]);
+    //         //	}
+    //         //}
+    //
+    //         return true;
+    //     }
+    //     catch (Exception)
+    //     {
+    //         return false;
+    //     }
+    // }
+    #endregion
 
     #region Web Request
 
@@ -1403,24 +1425,6 @@ public partial class SteamClient : IDisposable
     //[Obsolete("use SendAsync")]
     protected byte[]? Request(string url, string method, NameValueCollection? data, NameValueCollection? headers,
         string? multiData = null)
-    //{
-    //    byte[]? responsedata;
-    //    //try
-    //    //{
-    //    //    responsedata = Request(url, method, data, headers, true);
-    //    //}
-    //    //catch (Exception e)
-    //    //{
-    //    //    Log.Error(nameof(WinAuthSteamClient), e, "Forward Request Fail.");
-    //    //}
-
-    //    responsedata = Request(url, method, data, headers/*, false*/);
-
-    //    return responsedata;
-    //}
-
-    ////[Obsolete("use SendAsync")]
-    //byte[]? Request(string url, string method, NameValueCollection? data, NameValueCollection? headers/*, bool enableForward*/)
     {
         // ensure only one request per account at a time
         lock (this)
@@ -1434,8 +1438,6 @@ public partial class SteamClient : IDisposable
 
             if (multiData != null) query += multiData;
 
-            //var isForward = enableForward && TryGetForwardUrl(ref url);
-
             // call the server
             var httpClient = _httpClient;
             if (headers != null)
@@ -1445,8 +1447,6 @@ public partial class SteamClient : IDisposable
                     httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i].ThrowIsNull(), headers.Get(i));
                 }
             }
-
-            //if (isForward) AppendForwardHeaders(request.Headers);
 
             try
             {
@@ -1467,7 +1467,7 @@ public partial class SteamClient : IDisposable
                 // OK?
                 if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
                 {
-                    throw new WinAuthSteamToManyRequestException(Strings.error_TooManyRequests);
+                    throw new WinAuthSteamToManyRequestException(Strings.Error_TooManyRequests);
                 }
                 if (responseMessage.StatusCode == HttpStatusCode.Forbidden)
                 {
@@ -1514,6 +1514,84 @@ public partial class SteamClient : IDisposable
                 if (ex is WinAuthInvalidSteamRequestException) throw;
                 else throw new WinAuthInvalidSteamRequestException(ex.Message, ex);
             }
+        }
+    }
+
+    /// <summary>
+    /// Perform a request to the Steam WebAPI service
+    /// </summary>
+    /// <param name="url">API url</param>
+    /// <param name="method">GET or POST</param>
+    /// <param name="data">Name-data pairs</param>
+    /// <param name="cookies">current cookie container</param>
+    /// <param name="headers"></param>
+    /// <param name="timeout"></param>
+    /// <returns>response body</returns>
+    async Task<string> RequestAsync(string url, string method, NameValueCollection? data = null,
+        CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0)
+    {
+        // create form-encoded data for query or body
+        var query = data == null
+            ? string.Empty
+            : string.Join('&',
+                Array.ConvertAll(data.AllKeys,
+                    key => string.Format("{0}={1}", HttpUtility.UrlEncode(key), HttpUtility.UrlEncode(data[key]))));
+        if (string.Compare(method, "GET", true) == 0)
+            url += (!url.Contains('?', StringComparison.CurrentCulture) ? '?' : '&') + query;
+
+        var httpClient = _httpClient;
+
+        if (headers != null)
+        {
+            for (int i = 0; i < headers.Count; i++)
+            {
+                httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i].ThrowIsNull(), headers.Get(i));
+            }
+        }
+
+        try
+        {
+            HttpResponseMessage responseMessage;
+
+            string resultstring;
+            if (string.Compare(method, "POST", true) == 0)
+            {
+                HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
+                content.Headers.ContentLength = query.Length;
+                responseMessage = await httpClient.PostAsync(url, content);
+            }
+            else
+            {
+                responseMessage = await httpClient.GetAsync(url);
+            }
+
+            LogRequest(method, url, cookies, data,
+                responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
+
+            // 请求是否成功
+            if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                throw new WinAuthSteamToManyRequestException(Strings.Error_TooManyRequests);
+            }
+
+            if (responseMessage.StatusCode != HttpStatusCode.OK)
+                throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode,
+                    responseMessage.RequestMessage));
+
+            resultstring = await responseMessage.Content.ReadAsStringAsync();
+
+            LogRequest(method, url, cookies, data, resultstring);
+            return resultstring;
+        }
+        catch (Exception ex)
+        {
+            LogException(method, url, cookies, data, ex);
+
+            if (ex is WebException exception && exception.Response != null &&
+                ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
+                throw new WinAuthUnauthorisedRequestException(ex);
+
+            throw new WinAuthInvalidRequestException(ex.Message, ex);
         }
     }
 
@@ -1619,6 +1697,95 @@ public partial class SteamClient : IDisposable
 
     #endregion
 
+    #region ToolMethod
+
+    /// <summary>
+    /// Stop the current poller
+    /// </summary>
+    protected void PollConfirmationsStop()
+    {
+        // kill any existing poller
+        if (_pollerCancellation != null)
+        {
+            _pollerCancellation.Cancel();
+            _pollerCancellation = null;
+        }
+        Session.Confirmations = null;
+    }
+
+    /// <summary>
+    /// Create the hash needed for the confirmations query string
+    /// </summary>
+    /// <param name="time">current time</param>
+    /// <param name="tag">tag</param>
+    /// <param name="secret">identity secret</param>
+    /// <returns>hash string</returns>
+    static string CreateTimeHash(long time, string tag, string secret)
+    {
+        byte[] b64secret = Base64Extensions.Base64DecodeToByteArray(secret);
+
+        int bufferSize = 8;
+        if (string.IsNullOrEmpty(tag) == false)
+        {
+            bufferSize += Math.Min(32, tag.Length);
+        }
+        byte[] buffer = new byte[bufferSize];
+
+        byte[] timeArray = BitConverter.GetBytes(time);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(timeArray);
+        }
+        Array.Copy(timeArray, buffer, 8);
+        if (string.IsNullOrEmpty(tag) == false)
+        {
+            Array.Copy(Encoding.UTF8.GetBytes(tag), 0, buffer, 8, bufferSize - 8);
+        }
+
+        var hmac = new HMACSHA1(b64secret);
+        byte[] hash = hmac.ComputeHash(buffer);
+
+        return Convert.ToBase64String(hash, Base64FormattingOptions.None);
+    }
+
+    string? GetSelfIconUrlFromConfirmationDetails(string html)
+    {
+        var regex = GetSelfIconUrlFromConfirmationDetailsRegex().Match(html);
+        var result = regex.Groups[1].Value;
+        return result.Insert(result.IndexOf(".jpg", StringComparison.Ordinal), "_full");
+    }
+
+    ///// <summary>
+    ///// Perform a UMQ login
+    ///// </summary>
+    ///// <returns></returns>
+    ////[Obsolete("use UmqLoginAsync")]
+    //[Obsolete("0 references", true)]
+    //bool UmqLogin()
+    //{
+    //    if (IsLoggedIn() == false)
+    //    {
+    //        return false;
+    //    }
+
+    //    var data = new NameValueCollection();
+    //    data.Add("access_token", this.Session.OAuthToken);
+    //    var response = GetString(API_LOGON, "POST", data);
+    //    var loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
+    //    if (loginresponse.ContainsKey("umqid") == true)
+    //    {
+    //        Session.UmqId = (string)loginresponse["umqid"];
+    //        if (loginresponse.ContainsKey("message") == true)
+    //        {
+    //            Session.MessageId = Convert.ToInt32(loginresponse["message"]);
+    //        }
+
+    //        return true;
+    //    }
+
+    //    return false;
+    //}
+
     //[Obsolete("0 references", true)]
     //static string SelectTokenValueStr(JObject obj, string path)
     //{
@@ -1632,15 +1799,45 @@ public partial class SteamClient : IDisposable
     //    return StringToByteArray(SelectTokenValueStr(obj, path));
     //}
 
+    #endregion
+
+    #region GeneratedRegex
+
+    // /// <summary>
+    // /// Regular expressions for trade confirmations
+    // /// </summary>
+    // static readonly Regex _tradesRegex = TradesRegexRegex();
+    // static readonly Regex _tradeConfidRegex = TradeConfidRegex();
+    // static readonly Regex _tradeKeyRegex = TradeKeyRegexRegex();
+    // static readonly Regex _tradePlayerRegex = TradePlayerRegex();
+    // static readonly Regex _tradeDetailsRegex = TtradeDetailsRegex();
+    //
+    // [GeneratedRegex("\"mobileconf_list_entry\"(.*?)>(.*?)\"mobileconf_list_entry_sep\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradesRegexRegex();
+    //
+    // [GeneratedRegex("data-confid\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradeConfidRegex();
+    //
+    // [GeneratedRegex("data-key\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradeKeyRegexRegex();
+    //
+    // [GeneratedRegex("\"mobileconf_list_entry_icon\"(.*?)src=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TradePlayerRegex();
+    //
+    // [GeneratedRegex("\"mobileconf_list_entry_description\".*?<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*<div>([^<]*)</div>[^<]*</div>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    // private static partial Regex TtradeDetailsRegex();
+
     // [GeneratedRegex("(.*<body[^>]*>\\s*<div\\s+class=\"[^\"]+\">).*(</div>.*?</body>\\s*</html>)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     // private static partial Regex ConfirmationDetailsRegex();
-    
+
     [GeneratedRegex("<div class=\"tradeoffer_items_header\">.*?<div class=\"tradeoffer_item_list\">(.*?)<div style=\"clear: left;\"></div>", RegexOptions.Singleline)]
     private static partial Regex ConfirmationItemImageUrlsRegex();
-    
+
     [GeneratedRegex("<img src=\"(.*?)\"")]
     private static partial Regex ConfirmationItemImageUrlsGetRegex();
-    
+
     [GeneratedRegex("<div class=\"tradeoffer_items primary\">.*?<img src=\"(.*?)\"", RegexOptions.Singleline)]
     private static partial Regex GetSelfIconUrlFromConfirmationDetailsRegex();
+    #endregion
+
 }

@@ -51,11 +51,6 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
     const int SYNC_ERROR_MINUTES = 5;
 
     /// <summary>
-    /// URL used to sync time
-    /// </summary>
-    const string TIME_SYNC_URL = "http://www.google.com";
-
-    /// <summary>
     /// Time of last Sync error
     /// </summary>
     static DateTime _lastSyncError = DateTime.MinValue;
@@ -106,13 +101,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
         try
         {
             // we use the Header response field from a request to www.google.come
-            var requestMessage = new HttpRequestMessage(HttpMethod.Get, TIME_SYNC_URL)
-            {
-                Content = new StringContent(string.Empty, Encoding.UTF8, "text/html"),
-            };
-            using var client = new HttpClient();
-            client.Timeout = new TimeSpan(0, 0, 5);
-            using var response = client.Send(requestMessage);
+            using var response = AuthenticatorNetService.Google.TimeSync();
 
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)

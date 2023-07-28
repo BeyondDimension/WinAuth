@@ -123,34 +123,49 @@
   <data name="EmailAuthNeeded" xml:space="preserve">
     <value>请查看账号绑定邮箱，输入邮件验证码后继续。</value>
   </data>
-  <data name="error_invalid_activation_code" xml:space="preserve">
+  <data name="Error_InvalidActivationCode" xml:space="preserve">
     <value>无效的激活码</value>
   </data>
-  <data name="error_invalid_response_from_steam_" xml:space="preserve">
+  <data name="Error_InvalidResponseFromSteam" xml:space="preserve">
     <value>来自 Steam 的无效响应：{0}</value>
   </data>
-  <data name="error_ITwoFactorService_AddAuthenticator_v0001" xml:space="preserve">
+  <data name="Error_ITwoFactorService_AddAuthenticator_v0001" xml:space="preserve">
     <value>无法发送短信，检查您的手机号已在您的 Steam 帐户中注册。</value>
   </data>
-  <data name="error_NoOAuth" xml:space="preserve">
+  <data name="Error_NoOAuth" xml:space="preserve">
     <value>来自Steam的无效响应（没有OAuth令牌）。</value>
   </data>
-  <data name="error_on_activating" xml:space="preserve">
+  <data name="Error_OnActivating" xml:space="preserve">
     <value>激活时出现了问题。Steam 服务器可能存在问题。请稍后再试。</value>
   </data>
-  <data name="error_password" xml:space="preserve">
+  <data name="Error_Password" xml:space="preserve">
     <value>您所输入的账户名或密码不正确。</value>
   </data>
-  <data name="error_steamguard_phoneajax_" xml:space="preserve">
+  <data name="Error_SteamguardPhoneAjax" xml:space="preserve">
     <value>您的 Steam 帐户必须附有支持短信的手机号码, {0}请到 Steam 客户端或 Steam 网站的帐户详细信息添加电话号码。</value>
   </data>
-  <data name="error_TooManyRequests" xml:space="preserve">
+  <data name="Error_TooManyRequests" xml:space="preserve">
     <value>IP登录请求过于频繁，请稍后重试。</value>
   </data>
   <data name="RequiresActivation" xml:space="preserve">
     <value>请查看账号绑定手机号信息，输入验证码后继续。</value>
   </data>
-  <data name="error_HasAuthenticator" xml:space="preserve">
-	  <value>您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入</value>
+  <data name="Error_HasAuthenticator" xml:space="preserve">
+    <value>您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入</value>
+  </data>
+  <data name="AccountNotBindEmail" xml:space="preserve">
+    <value>账号没有绑定邮箱</value>
+  </data>
+  <data name="ConfirmLinkInEmail" xml:space="preserve">
+    <value>请确认邮件内的链接</value>
+  </data>
+  <data name="Error_AccountNotBindTel" xml:space="preserve">
+    <value>账号没有绑定的手机号，请根据指示添加手机号</value>
+  </data>
+  <data name="Error_GetQuoteTradingImage" xml:space="preserve">
+    <value>获取交易报价图片失败</value>
+  </data>
+  <data name="Error_InvalidLoginInfo" xml:space="preserve">
+    <value>登陆信息已失效</value>
   </data>
 </root>
