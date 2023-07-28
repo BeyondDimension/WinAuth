@@ -507,10 +507,12 @@ public partial class SteamClient : IDisposable
         }
     }
 
+    #region Public
+
     /// <summary>
     /// Clear the client state
     /// </summary>
-    protected void Clear()
+    public void Clear()
     {
         InvalidLogin = false;
         RequiresCaptcha = false;
@@ -523,8 +525,6 @@ public partial class SteamClient : IDisposable
 
         Session.Clear();
     }
-
-    #region Public
 
     /// <summary>
     /// Session Set
