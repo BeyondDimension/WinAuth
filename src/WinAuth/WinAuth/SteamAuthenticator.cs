@@ -48,7 +48,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     public SteamAuthenticator() : base(CODE_DIGITS)
     {
         Issuer = STEAM_ISSUER;
-        GetClient();
+        Client = GetClient();
     }
 
     [IgnoreDataMember]
@@ -231,7 +231,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public SteamClient? Client { get; private set; }
+    public SteamClient Client { get; private set; }
 
     #endregion
 
