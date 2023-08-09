@@ -124,7 +124,7 @@ namespace WinAuth {
         }
         
         /// <summary>
-        ///   查找类似 无效的激活码 的本地化字符串。
+        ///   查找类似 无效的验证码 的本地化字符串。
         /// </summary>
         internal static string Error_InvalidActivationCode {
             get {
@@ -169,7 +169,7 @@ namespace WinAuth {
         }
         
         /// <summary>
-        ///   查找类似 激活时出现了问题。Steam 服务器可能存在问题。请稍后再试。 的本地化字符串。
+        ///   查找类似 激活令牌时出现了问题。Steam 服务器可能存在问题。请稍后再试。 的本地化字符串。
         /// </summary>
         internal static string Error_OnActivating {
             get {

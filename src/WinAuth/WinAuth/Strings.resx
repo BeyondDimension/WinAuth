@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -124,7 +124,7 @@
     <value>请查看账号绑定邮箱，输入邮件验证码后继续。</value>
   </data>
   <data name="Error_InvalidActivationCode" xml:space="preserve">
-    <value>无效的激活码</value>
+    <value>无效的验证码</value>
   </data>
   <data name="Error_InvalidResponseFromSteam" xml:space="preserve">
     <value>来自 Steam 的无效响应：{0}</value>
@@ -136,7 +136,7 @@
     <value>来自Steam的无效响应（没有OAuth令牌）。</value>
   </data>
   <data name="Error_OnActivating" xml:space="preserve">
-    <value>激活时出现了问题。Steam 服务器可能存在问题。请稍后再试。</value>
+    <value>激活令牌时出现了问题。Steam 服务器可能存在问题。请稍后再试。</value>
   </data>
   <data name="Error_Password" xml:space="preserve">
     <value>您所输入的账户名或密码不正确。</value>

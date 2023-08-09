@@ -174,10 +174,10 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         // public string? CaptchaUrl { get; set; }
         //
         // public string? CaptchaText { get; set; }
-        //
-        // public string? EmailDomain { get; set; }
-        //
-        // public string? EmailAuthText { get; set; }
+
+        public string? EmailDomain { get; set; }
+
+        public string? EmailAuthText { get; set; }
 
         public string? ActivationCode { get; set; }
 
@@ -185,6 +185,10 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         public CookieContainer? Cookies { get; set; }
 
         public string? SteamId { get; set; }
+
+        public string? PhoneNumber { get; set; }
+
+        public bool NoPhoneNumber { get; set; }
 
         //public string? OAuthToken { get; set; }
 
@@ -195,6 +199,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         // public bool Requires2FA { get; set; }
         //
         // public bool RequiresEmailAuth { get; set; }
+
+        public bool RequiresEmailConfirmPhone { get; set; }
 
         public bool RequiresActivation { get; set; }
 
@@ -209,8 +215,6 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         public string? AccessToken { get; set; }
 
         public string? RefreshToken { get; set; }
-
-        public bool NoPhoneNumber { get; set; }
     }
 
     #region Authenticator data
@@ -538,26 +542,32 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <param name="confirmationEmail"></param>
     /// <param name="countryCode"></param>
     /// <returns>返回错误信息，返回为null则执行成功</returns>
-    public async Task<string?> AddPhoneNumberAsync(string accessToken, string steamId, string phoneNumber,
-        bool confirmationEmail = false, string? countryCode = null)
+    public async Task<string?> AddPhoneNumberAsync(EnrollState state, string phoneNumber, string? countryCode = null)
     {
+        state.AccessToken.ThrowIsNull();
+        state.SteamId.ThrowIsNull();
+
         string response;
-        if (!confirmationEmail)
+        if (!state.RequiresEmailConfirmPhone)
         {
             if (string.IsNullOrEmpty(countryCode))
-                countryCode = await GetUserCountry(accessToken, steamId);
+                countryCode = await GetUserCountry(state.AccessToken, state.SteamId);
             var data = new NameValueCollection();
 
-            response = await Client.AddPhoneNumberAsync(phoneNumber, countryCode, accessToken);
+            response = await Client.AddPhoneNumberAsync(phoneNumber, countryCode, state.AccessToken);
             var steamAddPhoneNumberResponse =
                 JsonSerializer.Deserialize(response, SteamPhoneNumberJsonContext.Default.SteamAddPhoneNumberResponse);
             steamAddPhoneNumberResponse.ThrowIsNull();
             steamAddPhoneNumberResponse.Response.ThrowIsNull();
 
-            if (steamAddPhoneNumberResponse.Response.ConfirmationEmailAddress == null) return Strings.AccountNotBindEmail;
+            if (steamAddPhoneNumberResponse.Response.ConfirmationEmailAddress == null)
+                return Strings.AccountNotBindEmail;
+            state.EmailDomain = steamAddPhoneNumberResponse.Response.ConfirmationEmailAddress;
+            state.PhoneNumber = steamAddPhoneNumberResponse.Response.PhoneNumberFormatted;
+            state.RequiresEmailConfirmPhone = true;
         }
 
-        response = await Client.AccountWaitingForEmailConfirmation(accessToken);
+        response = await Client.AccountWaitingForEmailConfirmation(state.AccessToken);
 
         var waitingForEmailConfirmationResponse =
             JsonSerializer.Deserialize(response,
@@ -568,8 +578,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         if (!waitingForEmailConfirmationResponse.Response.AwaitingEmailConfirmation)
         {
-            response = await Client.SendPhoneVerificationCode(accessToken);
-
+            await Client.SendPhoneVerificationCode(state.AccessToken);
+            state.RequiresEmailConfirmPhone = false;
             return null;
         }
 

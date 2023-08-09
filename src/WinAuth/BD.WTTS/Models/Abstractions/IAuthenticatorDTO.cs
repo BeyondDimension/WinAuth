@@ -21,7 +21,7 @@ public interface IAuthenticatorDTO : IOrderAuthenticator, IExplicitHasValue
     /// <summary>
     /// 身份验证器(游戏平台令牌)数据值
     /// </summary>
-    IAuthenticatorValueDTO? Value { get; set; }
+    IAuthenticatorValueDTO Value { get; set; }
 }
 
 [Obsolete("use IAuthenticatorDTO", true)]
