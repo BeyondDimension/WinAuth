@@ -6,16 +6,6 @@ namespace BD.WTTS.Models.Abstractions;
 partial interface IAuthenticatorValueDTO
 {
     /// <summary>
-    /// HMAC hashing algorithm types
-    /// </summary>
-    enum HMACTypes
-    {
-        SHA1 = 0,
-        SHA256 = 1,
-        SHA512 = 2,
-    }
-
-    /// <summary>
     /// 使用当前加密和/或密码保存的当前数据（可能为无）
     /// </summary>
     string? EncryptedData { get; set; }

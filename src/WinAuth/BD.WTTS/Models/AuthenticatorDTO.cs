@@ -1,6 +1,6 @@
 namespace BD.WTTS.Models;
 
-/// <inheritdoc cref="IGAPAuthenticatorDTO"/>
+/// <inheritdoc cref="IAuthenticatorDTO"/>
 [MessagePackObject(keyAsPropertyName: true)]
 public sealed partial class AuthenticatorDTO : IAuthenticatorDTO
 {
@@ -26,10 +26,4 @@ public sealed partial class AuthenticatorDTO : IAuthenticatorDTO
     {
         return !string.IsNullOrEmpty(Name) && Value != null;
     }
-}
-
-[Obsolete("use AuthenticatorDTO", true)]
-public sealed class GAPAuthenticatorDTO
-{
-
 }

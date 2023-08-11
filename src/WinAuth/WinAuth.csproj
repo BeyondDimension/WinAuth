@@ -11,6 +11,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Include="..\AssemblyInfo.Xaml.cs">
+			<LinkBase>Properties</LinkBase>
+		</Compile>
 		<Compile Include="..\ImplicitUsings.Common.cs">
 			<LinkBase>Properties</LinkBase>
 		</Compile>

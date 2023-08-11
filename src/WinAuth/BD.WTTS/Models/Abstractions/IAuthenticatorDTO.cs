@@ -23,9 +23,3 @@ public interface IAuthenticatorDTO : IOrderAuthenticator, IExplicitHasValue
     /// </summary>
     IAuthenticatorValueDTO Value { get; set; }
 }
-
-[Obsolete("use IAuthenticatorDTO", true)]
-public interface IGAPAuthenticatorDTO : IAuthenticatorDTO
-{
-
-}
