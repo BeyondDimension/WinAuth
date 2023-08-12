@@ -15,8 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+using BD.Common.Columns;
+using Newtonsoft.Json;
+using ProtoBuf;
 using ReactiveUI;
+using SteamKit2.Internal;
 using System.Collections.Specialized;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
 using static WinAuth.SteamAuthenticator;
 using static WinAuth.SteamClient.Utils;
@@ -270,124 +275,150 @@ public partial class SteamClient : IDisposable
     /// </summary>
     public sealed partial class SteamSession
     {
-        /// <summary>
-        /// User's steam ID
-        /// </summary>
-        public string? SteamId;
-
-        /// <summary>
-        /// Current cookies
-        /// </summary>
-        public CookieContainer Cookies = new();
-
-        /// <summary>
-        /// Authorization token
-        /// </summary>
-        public string? OAuthToken;
-
-        /// <summary>
-        /// UMQ id
-        /// </summary>
-        public string? UmqId;
-
-        /// <summary>
-        /// Message id
-        /// </summary>
-        public int MessageId;
-
-        /// <summary>
-        /// Current polling state
-        /// </summary>
-        public ConfirmationPoller? Confirmations;
-
-        /// <summary>
-        /// Create Session instance
-        /// </summary>
         public SteamSession()
         {
-            Clear(false);
         }
 
-        /// <summary>
-        /// Create session instance from existing json data
-        /// </summary>
-        /// <param name="json">json session data</param>
-        public SteamSession(string? json) : this()
+        public SteamSession(string json)
         {
-            if (!string.IsNullOrEmpty(json))
-                try
-                {
-                    FromJson(json);
-                }
-                catch (Exception)
-                {
-                    // invalid json
-                }
+            if (string.IsNullOrEmpty(json))
+                throw new ArgumentNullException(nameof(json));
+
+            var session = System.Text.Json.JsonSerializer.Deserialize<SteamSession>(json);
+            if (session == null)
+                throw new ArgumentNullException(nameof(session));
+
+            this.SteamID = session.SteamID;
+            this.AccessToken = session.AccessToken;
+            this.RefreshToken = session.RefreshToken;
+            this.SessionID = session.SessionID;
         }
 
-        /// <summary>
-        /// Clear the session
-        /// </summary>
-        public void Clear() => Clear(true);
+        [JsonPropertyName("steamid")]
+        public ulong SteamID { get; set; }
 
-        void Clear(bool setCookies)
-        {
-            OAuthToken = null;
-            UmqId = null;
-            if (setCookies) Cookies = new();
-            Confirmations = null;
-        }
+        [JsonPropertyName("access_token")]
+        public string? AccessToken { get; set; }
 
-        /// <summary>
-        /// Get session data that can be saved and imported
-        /// </summary>
-        /// <returns></returns>
-        public override string ToString()
-        {
-            return "{\"steamid\":\"" + (SteamId ?? string.Empty) + "\","
-                + "\"cookies\":\"" + Cookies.ThrowIsNull(nameof(Cookies)).GetCookieHeader(new Uri(COMMUNITY_BASE + "/")) + "\","
-                + "\"oauthtoken\":\"" + (OAuthToken ?? string.Empty) + "\","
-                // + "\"umqid\":\"" + (this.UmqId ?? string.Empty) + "\","
-                + "\"confs\":" + (Confirmations != null ? Confirmations.ToString() : "null")
-                + "}";
-        }
+        [JsonPropertyName("refresh_token")]
+        public string? RefreshToken { get; set; }
 
-        /// <summary>
-        /// Convert json data into session
-        /// </summary>
-        /// <param name="json"></param>
-        void FromJson(string json)
+        [JsonPropertyName("sessionid")]
+        public string? SessionID { get; set; }
+
+        public async Task RefreshAccessToken(SteamClient client)
         {
-            var sessiondata = JsonSerializer.Deserialize(json, SteamJsonContext.Default.SteamSessionDataStruct);
-            sessiondata.ThrowIsNull();
-            if (sessiondata.SteamId != string.Empty)
-                SteamId = sessiondata.SteamId;
-            if (sessiondata.Cookies != string.Empty)
+            if (string.IsNullOrEmpty(this.RefreshToken))
+                throw new Exception("Refresh token is empty");
+
+            if (IsTokenExpired(this.RefreshToken))
+                throw new Exception("Refresh token is expired");
+
+            string responseStr;
+            try
             {
-                Cookies = new CookieContainer();
-
-                // Net3.5 has a bug that prepends "." to domain, e.g. ".steamcommunity.com"
-                var uri = new Uri(COMMUNITY_BASE + "/");
-                var match = SteamSessionCookiesRegex().Match(sessiondata.Cookies);
-                while (match.Success == true)
+                var postData = new NameValueCollection
                 {
-                    Cookies.Add(uri, new Cookie(match.Groups[1].Value.Trim(), match.Groups[2].Value.Trim()));
-                    match = match.NextMatch();
-                }
+                    { "refresh_token", this.RefreshToken },
+                    { "steamid", this.SteamID.ToString() }
+                };
+                responseStr = await client.RequestAsync<string>("https://api.steampowered.com/IAuthenticationService/GenerateAccessTokenForApp/v1/", "POST", postData);
             }
-            if (sessiondata.OAuthToken != string.Empty)
-                OAuthToken = sessiondata.OAuthToken;
-            //token = tokens.SelectToken("umqid");
-            //if (token != null)
-            //{
-            //	this.UmqId = token.Value<string>();
-            //}
-            if (sessiondata.Confirmations != null)
-                Confirmations = sessiondata.Confirmations;
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to refresh token: " + ex.Message);
+            }
+
+            var response = JsonConvert.DeserializeObject<GenerateAccessTokenForAppResponse>(responseStr);
+            this.AccessToken = response.Response.AccessToken;
         }
 
-        [GeneratedRegex("([^=]+)=([^;]*);?", RegexOptions.Singleline)]
-        private static partial Regex SteamSessionCookiesRegex();
+        public bool IsAccessTokenExpired()
+        {
+            if (string.IsNullOrEmpty(this.AccessToken))
+                return true;
+
+            return IsTokenExpired(this.AccessToken);
+        }
+
+        public bool IsRefreshTokenExpired()
+        {
+            if (string.IsNullOrEmpty(this.RefreshToken))
+                return true;
+
+            return IsTokenExpired(this.RefreshToken);
+        }
+
+        private bool IsTokenExpired(string token)
+        {
+            var tokenComponents = token.Split('.');
+            // Fix up base64url to normal base64
+            var base64 = tokenComponents[1].Replace('-', '+').Replace('_', '/');
+
+            if (base64.Length % 4 != 0)
+            {
+                base64 += new string('=', 4 - base64.Length % 4);
+            }
+
+            var payloadBytes = Convert.FromBase64String(base64);
+            var jwt = JsonConvert.DeserializeObject<SteamAccessToken>(System.Text.Encoding.UTF8.GetString(payloadBytes));
+
+            // Compare expire time of the token to the current time
+            return DateTimeOffset.UtcNow.ToUnixTimeSeconds() > jwt.Exp;
+        }
+
+        public CookieContainer GetCookies()
+        {
+            if (this.SessionID == null)
+                this.SessionID = GenerateSessionID();
+
+            var cookies = new CookieContainer();
+            cookies.Add(new Cookie("steamLoginSecure", this.GetSteamLoginSecure(), "/", "steamcommunity.com"));
+            cookies.Add(new Cookie("sessionid", this.SessionID, "/", "steamcommunity.com"));
+            cookies.Add(new Cookie("mobileClient", "android", "/", "steamcommunity.com"));
+            cookies.Add(new Cookie("mobileClientVersion", "777777 3.6.1", "/", "steamcommunity.com"));
+            return cookies;
+        }
+
+        private string GetSteamLoginSecure()
+        {
+            return this.SteamID.ToString() + "%7C%7C" + this.AccessToken;
+        }
+
+        private static string GenerateSessionID()
+        {
+            return GetRandomHexNumber(32);
+        }
+
+        private static string GetRandomHexNumber(int digits)
+        {
+            Random random = new Random();
+            byte[] buffer = new byte[digits / 2];
+            random.NextBytes(buffer);
+            string result = String.Concat(buffer.Select(x => x.ToString("X2")).ToArray());
+            if (digits % 2 == 0)
+                return result;
+            return result + random.Next(16).ToString("X");
+        }
+
+        private class SteamAccessToken
+        {
+            [JsonProperty("exp")]
+            public long Exp { get; set; }
+        }
+
+        private class GenerateAccessTokenForAppResponse
+        {
+            [JsonProperty("response")]
+            public GenerateAccessTokenForAppResponseResponse? Response;
+        }
+
+        private class GenerateAccessTokenForAppResponseResponse
+        {
+            [JsonProperty("access_token")]
+            public string? AccessToken { get; set; }
+        }
+
     }
 
     /// <summary>
@@ -523,7 +554,7 @@ public partial class SteamClient : IDisposable
         Requires2FA = false;
         Error = null;
 
-        Session.Clear();
+        Session = null;
     }
 
     /// <summary>
@@ -543,36 +574,17 @@ public partial class SteamClient : IDisposable
         {
             Session = new SteamSession(session);
 
-            if (Session.Confirmations != null)
-            {
-                if (IsLoggedIn() == false)
-                {
-                    Session.Confirmations = null;
-                }
-                else
-                {
-                    Task.Factory.StartNew(() =>
-                    {
-                        //Refresh();
-                        PollConfirmations(Session.Confirmations);
-                    });
-                }
-            }
-
-            if (Session.Cookies != null)
-            {
-                handler.UseCookies = true;
-                handler.CookieContainer = Session.Cookies;
-            }
+            handler.UseCookies = true;
+            handler.CookieContainer = Session.GetCookies();
         }
         else
-            Session = new SteamSession(session);
+            Session = new SteamSession();
 
         _httpClient = new HttpClient(handler);
-        _httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
-        _httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
-        //httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
+        //_httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
+        //_httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
+        //_httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
         _httpClient.Timeout = new TimeSpan(0, 0, 45);
         _httpClient.DefaultRequestHeaders.ExpectContinue = false;
     }
@@ -581,187 +593,7 @@ public partial class SteamClient : IDisposable
     /// Check if user is logged in
     /// </summary>
     /// <returns></returns>
-    public bool IsLoggedIn()
-    {
-        return Session != null && string.IsNullOrEmpty(Session.OAuthToken) == false;
-    }
-
-    /// <summary>
-    /// Login to Steam using credentials and optional captcha
-    /// </summary>
-    /// <param name="username"></param>
-    /// <param name="password"></param>
-    /// <param name="captchaId"></param>
-    /// <param name="captchaText"></param>
-    /// <param name="language"></param>
-    /// <returns>true if successful</returns>
-    //[Obsolete("use LoginAsync")]
-    public bool Login(string username, string password, string? captchaId = null, string? captchaText = null, string? language = null)
-    {
-        // clear error
-        Error = null;
-
-        var data = new NameValueCollection();
-        string response;
-
-        if (IsLoggedIn() == false)
-        {
-            // get session
-            if (Session.Cookies.Count == 0)
-            {
-                // .Net3.5 has a bug in CookieContainer that prepends a "." to the domain, i.e. ".steamcommunity.com"
-                var cookieuri = new Uri(COMMUNITY_BASE + "/");
-                Session.Cookies.Add(cookieuri, new Cookie("mobileClientVersion", "3067969+%282.1.3%29"));
-                Session.Cookies.Add(cookieuri, new Cookie("mobileClient", "android"));
-                Session.Cookies.Add(cookieuri, new Cookie("steamid", ""));
-                Session.Cookies.Add(cookieuri, new Cookie("steamLogin", ""));
-                Session.Cookies.Add(cookieuri, new Cookie("Steam_Language", string.IsNullOrEmpty(language) ? "english" : language));
-                Session.Cookies.Add(cookieuri, new Cookie("dob", ""));
-
-                NameValueCollection headers = new NameValueCollection
-                {
-                    { "X-Requested-With", "com.valvesoftware.android.steam.community" },
-                };
-
-                _ = GetString(COMMUNITY_BASE + "/mobilelogin?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client", "GET", null, headers);
-            }
-
-            // Steam strips any non-ascii chars from username and password
-            username = U0000_U007F_Regex().Replace(username, string.Empty);
-            password = U0000_U007F_Regex().Replace(password, string.Empty);
-
-            // get the user's RSA key
-            data.Add("username", username);
-            response = GetString(COMMUNITY_BASE + "/mobilelogin/getrsakey", "POST", data);
-            var rsaresponse = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamGetRsaKeyJsonStruct);
-            rsaresponse.ThrowIsNull();
-            if (rsaresponse.Success != true)
-            {
-                InvalidLogin = true;
-                Error = Strings.Error_Password;
-                return false;
-            }
-
-            // encrypt password with RSA key
-            //var random RandomNumberGenerator.Create();
-            string encryptedPassword64;
-            using (var rsa = RSA.Create())
-            {
-                var passwordBytes = Encoding.ASCII.GetBytes(password);
-                var p = rsa.ExportParameters(false);
-                p.Exponent = StringToByteArray(rsaresponse.PublicKeyExp);
-                p.Modulus = StringToByteArray(rsaresponse.PublicKeyMod);
-                rsa.ImportParameters(p);
-                byte[] encryptedPassword = rsa.Encrypt(passwordBytes, RSAEncryptionPadding.Pkcs1);
-                encryptedPassword64 = Convert.ToBase64String(encryptedPassword);
-            }
-
-            // login request
-            data = new NameValueCollection
-            {
-                { "password", encryptedPassword64 },
-                { "username", username },
-                { "twofactorcode", Authenticator.CurrentCode },
-                //data.Add("emailauth", string.Empty);
-                { "loginfriendlyname", "#login_emailauth_friendlyname_mobile" },
-                { "captchagid", string.IsNullOrEmpty(captchaId) == false ? captchaId : "-1" },
-                { "captcha_text", string.IsNullOrEmpty(captchaText) == false ? captchaText : "enter above characters" },
-                //data.Add("emailsteamid", (string.IsNullOrEmpty(emailcode) == false ? this.SteamId ?? string.Empty : string.Empty));
-                { "rsatimestamp", rsaresponse.TimeStamp },
-                { "remember_login", "false" },
-                { "oauth_client_id", "DE45CD61" },
-                { "oauth_scope", "read_profile write_profile read_client write_client" },
-                { "donotache", donotache_value },
-            };
-            const string url_mobilelogin_dologin = "/mobilelogin/dologin";
-            response = GetString(COMMUNITY_BASE + url_mobilelogin_dologin, "POST", data);
-            var loginresponse = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamMobileDologinJsonStruct);
-            loginresponse.ThrowIsNull();
-
-            //if (loginresponse == null)
-            //{
-            //    throw GetWinAuthException(response, url_mobilelogin_dologin, new ArgumentNullException(nameof(loginresponse)));
-            //}
-
-            InvalidLogin = false;
-            RequiresCaptcha = false;
-            CaptchaId = null;
-            CaptchaUrl = null;
-            RequiresEmailAuth = false;
-            EmailDomain = null;
-            Requires2FA = false;
-
-            if (loginresponse.LoginComplete == false || loginresponse.TransferParameters == null)
-            {
-                InvalidLogin = true;
-
-                //// require captcha
-                //if (loginresponse.CaptchaNeeded == true)
-                //{
-                //    RequiresCaptcha = true;
-                //    CaptchaId = loginresponse.CaptchaGId;
-                //    CaptchaUrl = COMMUNITY_BASE + "/public/captcha.php?gid=" + CaptchaId;
-
-                //    Error = Strings.CaptchaNeeded;
-                //    return false;
-                //}
-
-                //// require email auth
-                //if (loginresponse.EmailAuthNeeded == true)
-                //{
-                //    if (loginresponse.EmailDomain != string.Empty)
-                //    {
-                //        EmailDomain = loginresponse.EmailDomain;
-                //    }
-                //    RequiresEmailAuth = true;
-
-                //    Error = Strings.EmailAuthNeeded;
-                //    return false;
-                //}
-
-                // require email auth
-                if (loginresponse.RequiresTwofactor == true)
-                {
-                    Requires2FA = true;
-                }
-
-                //if (loginresponse.Message != string.Empty)
-                //{
-                //    Error = loginresponse.Message;
-                //}
-
-                Error = Strings.Error_Password;
-
-                return false;
-            }
-
-            // get the OAuth token
-            //var oauthjson = JsonSerializer.Deserialize(loginresponse.OAuth, SteamJsonContext.Default.SteamDoLoginOauthJsonStruct);
-            var oauthjson = loginresponse.TransferParameters;
-            oauthjson.ThrowIsNull();
-            Session.OAuthToken = oauthjson.Auth;
-            if (oauthjson.Steamid != string.Empty)
-            {
-                Session.SteamId = oauthjson.Steamid;
-            }
-
-            //// perform UMQ login
-            //data.Clear();
-            //data.Add("access_token", this.Session.OAuthToken);
-            //response = GetString(API_LOGON, "POST", data);
-            //loginresponse = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
-            //if (loginresponse.ContainsKey("umqid") == true)
-            //{
-            //	this.Session.UmqId = (string)loginresponse["umqid"];
-            //	if (loginresponse.ContainsKey("message") == true)
-            //	{
-            //		this.Session.MessageId = Convert.ToInt32(loginresponse["message"]);
-            //	}
-            //}
-        }
-
-        return true;
-    }
+    public bool IsLoggedIn() => string.IsNullOrEmpty(Session?.AccessToken) == false;
 
     /// <summary>
     /// Logout of the current session
@@ -769,7 +601,7 @@ public partial class SteamClient : IDisposable
     //[Obsolete("use LogoutAsync")]
     public void Logout()
     {
-        if (string.IsNullOrEmpty(Session.OAuthToken) == false)
+        if (string.IsNullOrEmpty(Session?.AccessToken) == false)
         {
             PollConfirmationsStop();
 
@@ -788,147 +620,16 @@ public partial class SteamClient : IDisposable
     }
 
     /// <summary>
-    /// Start a new poller
-    /// </summary>
-    /// <param name="poller"></param>
-    public void PollConfirmations(ConfirmationPoller poller)
-    {
-        PollConfirmationsStop();
-
-        if (poller == null || poller.Duration <= 0)
-        {
-            return;
-        }
-
-        Session.Confirmations ??= new ConfirmationPoller();
-        Session.Confirmations = poller;
-
-        _pollerCancellation = new CancellationTokenSource();
-        var token = _pollerCancellation.Token;
-        Task.Factory.StartNew(() => PollConfirmations(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-    }
-
-    /// <summary>
-    /// Confirmation polling task
-    /// </summary>
-    /// <param name="cancel"></param>
-    public async void PollConfirmations(CancellationToken cancel)
-    {
-        //lock (this.Session.Confirmations)
-        //{
-        //	if (this.Session.Confirmations.Ids == null)
-        //	{
-        //		try
-        //		{
-        //			// this will update the session
-        //			GetConfirmations();
-        //		}
-        //		catch (InvalidSteamRequestException)
-        //		{
-        //			// ignore in case of Steam timeout
-        //		}
-        //	}
-        //}
-
-        try
-        {
-            int retryCount = 0;
-            while (!cancel.IsCancellationRequested && Session.Confirmations != null)
-            {
-                try
-                {
-                    //List<string> currentIds;
-                    //lock (this.Session.Confirmations)
-                    //{
-                    //	currentIds = this.Session.Confirmations.Ids;
-                    //}
-
-                    var confs = GetConfirmations();
-
-                    // check for new ids
-                    //List<string> newIds;
-                    //if (currentIds == null)
-                    //{
-                    //	newIds = confs.Select(t => t.Id).ToList();
-                    //}
-                    //else
-                    //{
-                    //	newIds = confs.Select(t => t.Id).Except(currentIds).ToList();
-                    //}
-
-                    // fire events if subscriber
-                    if (ConfirmationEvent != null /* && newIds.Count() != 0 */)
-                    {
-                        var rand = new Random();
-                        foreach (var conf in confs)
-                        {
-                            if (cancel.IsCancellationRequested)
-                            {
-                                break;
-                            }
-
-                            DateTime start = DateTime.Now;
-
-                            ConfirmationEvent(this, conf, Session.Confirmations.Action);
-
-                            // Issue#339: add a delay for any autoconfs or notifications
-                            var delay = CONFIRMATION_EVENT_DELAY + rand.Next(CONFIRMATION_EVENT_DELAY / 2); // delay is 100%-150% of CONFIRMATION_EVENT_DELAY
-                            var duration = (int)DateTime.Now.Subtract(start).TotalMilliseconds;
-                            if (delay > duration)
-                            {
-                                Thread.Sleep(delay - duration);
-                            }
-                        }
-                    }
-
-                    retryCount = 0;
-                }
-                catch (TaskCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    retryCount++;
-                    if (retryCount >= ConfirmationPollerRetries)
-                    {
-                        ConfirmationErrorEvent?.Invoke(this, "Failed to read confirmations", Session.Confirmations.Action, ex);
-                    }
-                    else
-                    {
-                        // try and reset the session
-                        // try
-                        // {
-                        //     Refresh();
-                        // }
-                        // catch (Exception)
-                        // {
-                        // }
-                    }
-                }
-
-                if (Session.Confirmations != null)
-                {
-                    await Task.Delay(Session.Confirmations.Duration * 60 * 1000, cancel);
-                }
-            }
-        }
-        catch (TaskCanceledException)
-        {
-        }
-    }
-
-    /// <summary>
     /// Get the current trade Confirmations
     /// </summary>
     /// <returns>list of Confirmation objects</returns>
     //[Obsolete("use GetConfirmationsAsync")]
-    public IEnumerable<SteamMobileTradeConf> GetConfirmations()
+    public async Task<IEnumerable<SteamMobileTradeConf>>? GetConfirmations()
     {
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
         Authenticator.SteamData.ThrowIsNull();
-        var ids = JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
+        var ids = System.Text.Json.JsonSerializer.Deserialize(Authenticator.SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.IdentitySecret;
         ids.ThrowIsNull();
 
         // conf -> list
@@ -937,7 +638,7 @@ public partial class SteamClient : IDisposable
         var data = new NameValueCollection()
         {
             { "p", Authenticator.DeviceId },
-            { "a", Session.SteamId },
+            { "a", Session.SteamID.ToString() },
             { "k", timehash },
             { "t", servertime.ToString() },
             { "m", "react" },
@@ -946,7 +647,7 @@ public partial class SteamClient : IDisposable
 
         // https://steamcommunity.com/mobileconf/getlist?a=SteamID&tag=list&m=react&t=servertime&p=EncodeURL(deviceID)&k=EncodeURL(timehash)
         // 格式变为json格式返回
-        string html = GetString(COMMUNITY_BASE + "/mobileconf/getlist", "GET", data);
+        string html = await RequestAsync<string>(COMMUNITY_BASE + "/mobileconf/getlist", "GET", data);
 
         // save last html for confirmations details
         //ConfirmationsHtml = html;
@@ -954,100 +655,41 @@ public partial class SteamClient : IDisposable
 
         var jsonObject = JsonSerializer.Deserialize(html, SteamJsonContext.Default.SteamMobileConfGetListJsonStruct);
 
-        if (jsonObject?.Conf == null) return new SteamMobileTradeConf[] { };
+        if (jsonObject?.Conf == null) return null;
 
-        // foreach (var item in jsonObject.Conf)
-        // {
-        //     var trade = new  Conf();
-        //     trade.Id = item.Id;
-        //     trade.Key = item.Nonce;
-        //     trade.Image = item.Icon;
-        //     foreach (var summary in item.Summary)
-        //     {
-        //         trade.Details += summary + "\r\n";
-        //     }
-        //
-        //     trade.When = item.Warn;
-        //     
-        //     trades.Add(trade);
-        // }
-        // extract the trades
-        // Match match = _tradesRegex.Match(html);
-        // while (match.Success)
-        // {
-        //     var tradeIds = match.Groups[1].Value;
-        //
-        //     var trade = new Confirmation();
-        //
-        //     var innerMatch = _tradeConfidRegex.Match(tradeIds);
-        //     if (innerMatch.Success)
-        //     {
-        //         trade.Id = innerMatch.Groups[1].Value;
-        //     }
-        //     innerMatch = _tradeKeyRegex.Match(tradeIds);
-        //     if (innerMatch.Success)
-        //     {
-        //         trade.Key = innerMatch.Groups[1].Value;
-        //     }
-        //
-        //     var traded = match.Groups[2].Value;
-        //
-        //     innerMatch = _tradePlayerRegex.Match(traded);
-        //     if (innerMatch.Success)
-        //     {
-        //         if (innerMatch.Groups[1].Value.IndexOf("offline") != -1)
-        //         {
-        //             trade.Offline = true;
-        //         }
-        //         trade.Image = innerMatch.Groups[2].Value.Replace("32fx32f", "128fx128f");
-        //     }
-        //
-        //     innerMatch = _tradeDetailsRegex.Match(traded);
-        //     if (innerMatch.Success)
-        //     {
-        //         trade.Details = innerMatch.Groups[1].Value;
-        //         trade.Traded = innerMatch.Groups[2].Value;
-        //         trade.When = innerMatch.Groups[3].Value;
-        //     }
-        //
-        //     trades.Add(trade);
-        //
-        //     match = match.NextMatch();
-        // }
-
-        if (Session.Confirmations != null)
-        {
-            lock (Session.Confirmations)
-            {
-                Session.Confirmations.Ids ??= new List<string>();
-                foreach (var conf in jsonObject.Conf)
-                {
-                    // conf.IsNew = Session.Confirmations.Ids.Contains(conf.Id) == false;
-                    // if (conf.IsNew == true)
-                    // {
-                    //     Session.Confirmations.Ids.Add(conf.Id);
-                    // }
-                    if (!Session.Confirmations.Ids.Contains(conf.Id)) Session.Confirmations.Ids.Add(conf.Id);
-                }
-                var newIds = jsonObject.Conf.Select(t => t.Id).ToList();
-                foreach (var confId in Session.Confirmations.Ids)
-                {
-                    if (newIds.Contains(confId) == false)
-                    {
-                        Session.Confirmations.Ids.Remove(confId);
-                    }
-                }
-            }
-        }
+        //if (Session.Confirmations != null)
+        //{
+        //    lock (Session.Confirmations)
+        //    {
+        //        Session.Confirmations.Ids ??= new List<string>();
+        //        foreach (var conf in jsonObject.Conf)
+        //        {
+        //            // conf.IsNew = Session.Confirmations.Ids.Contains(conf.Id) == false;
+        //            // if (conf.IsNew == true)
+        //            // {
+        //            //     Session.Confirmations.Ids.Add(conf.Id);
+        //            // }
+        //            if (!Session.Confirmations.Ids.Contains(conf.Id)) Session.Confirmations.Ids.Add(conf.Id);
+        //        }
+        //        var newIds = jsonObject.Conf.Select(t => t.Id).ToList();
+        //        foreach (var confId in Session.Confirmations.Ids)
+        //        {
+        //            if (newIds.Contains(confId) == false)
+        //            {
+        //                Session.Confirmations.Ids.Remove(confId);
+        //            }
+        //        }
+        //    }
+        //}
 
         return jsonObject.Conf;
     }
 
-    public (string[] receiveItems, string[] sendItems) GetConfirmationItemImageUrls(string tradeId)
+    public async Task<(string[] receiveItems, string[] sendItems)> GetConfirmationItemImageUrls(string tradeId)
     {
         string url = COMMUNITY_BASE + "/mobileconf/details/" + tradeId + "?" + ConfirmationsQuery;
 
-        string response = GetString(url);
+        string response = await RequestAsync<string>(url, "GET");
         if (!response.Contains("success", StringComparison.OrdinalIgnoreCase))
         {
             throw new WinAuthInvalidSteamRequestException("Invalid request from steam: " + response);
@@ -1095,9 +737,9 @@ public partial class SteamClient : IDisposable
     /// <param name="accept">true to accept, false to reject</param>
     /// <returns>true if successful</returns>
     //[Obsolete("use ConfirmTradeAsync")]
-    public bool ConfirmTrade(Dictionary<string, string> trades, bool accept)
+    public async Task<bool> ConfirmTrade(Dictionary<string, string> trades, bool accept)
     {
-        if (string.IsNullOrEmpty(Session.OAuthToken) == true)
+        if (string.IsNullOrEmpty(Session.AccessToken) == true)
         {
             return false;
         }
@@ -1118,16 +760,18 @@ public partial class SteamClient : IDisposable
         {
             { "op", accept ? "allow" : "cancel" },
             { "p", Authenticator.DeviceId },
-            { "a", Session.SteamId },
+            { "a", Session.SteamID.ToString() },
             { "k", timehash },
             { "t", servertime.ToString() },
             { "m", "react" },
             { "tag", conf },
         };
-        string? multiData = null;
+
+        //var multiData = new NameValueCollection();
         foreach (var item in trades)
         {
-            multiData += $"&cid[]={HttpUtility.UrlEncode(item.Key)}&ck[]={HttpUtility.UrlEncode(item.Value)}";
+            data.Add("cid[]", HttpUtility.UrlEncode(item.Key));
+            data.Add("ck[]", HttpUtility.UrlEncode(item.Value));
         }
         try
         {
@@ -1137,7 +781,7 @@ public partial class SteamClient : IDisposable
             // 现在可单条请求处理多个交易 循环以下代码添加批量的 cid 和 ck 即可
             // data.Add("cid[]", id);
             // data.Add("ck[]", key);
-            string response = GetString(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data, multiData: multiData);
+            string response = await RequestAsync<string>(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data);
 
             if (string.IsNullOrEmpty(response) == true)
             {
@@ -1153,16 +797,16 @@ public partial class SteamClient : IDisposable
                 return false;
             }
 
-            if (Session.Confirmations?.Ids != null)
-            {
-                lock (Session.Confirmations)
-                {
-                    foreach (var item in trades.Where(item => Session.Confirmations.Ids.Contains(item.Key) == true))
-                    {
-                        Session.Confirmations.Ids.Remove(item.Key);
-                    }
-                }
-            }
+            //if (Session.Confirmations?.Ids != null)
+            //{
+            //    lock (Session.Confirmations)
+            //    {
+            //        foreach (var item in trades.Where(item => Session.Confirmations.Ids.Contains(item.Key) == true))
+            //        {
+            //            Session.Confirmations.Ids.Remove(item.Key);
+            //        }
+            //    }
+            //}
 
             return true;
         }
@@ -1196,7 +840,7 @@ public partial class SteamClient : IDisposable
                 { "X-Requested-With", "com.valvesoftware.android.steam.community" },
             };
 
-            _ = await RequestAsync(
+            _ = await RequestAsync<string>(
                 "https://steamcommunity.com/login?oauth_client_id=DE45CD61&oauth_scope=read_profile%20write_profile%20read_client%20write_client",
                 "GET", null, cookies, headers);
         }
@@ -1209,7 +853,7 @@ public partial class SteamClient : IDisposable
             { "donotache", donotache },
             { "username", username }
         };
-        return await RequestAsync(COMMUNITY_BASE + "/login/getrsakey", "POST", data, cookies);
+        return await RequestAsync<string>(COMMUNITY_BASE + "/login/getrsakey", "POST", data, cookies);
     }
 
     public async Task<string> AddAuthenticatorAsync(string? steamid, string authenticator_time, string? device_identifier, string access_token, string authenticator_type = "1", string sms_phone_id = "1")
@@ -1221,7 +865,7 @@ public partial class SteamClient : IDisposable
         data.Add("device_identifier", device_identifier);
         data.Add("sms_phone_id", sms_phone_id);
         const string url_ITwoFactorService_AddAuthenticator_v0001 = "/ITwoFactorService/AddAuthenticator/v1";
-        return await RequestAsync(
+        return await RequestAsync<string>(
             WEBAPI_BASE + url_ITwoFactorService_AddAuthenticator_v0001 + $"/?access_token={access_token}",
             "POST", data);
     }
@@ -1234,7 +878,7 @@ public partial class SteamClient : IDisposable
         data.Add("validate_sms_code", validate_sms_code);
         data.Add("authenticator_code", authenticator_code);
         data.Add("authenticator_time", authenticator_time);
-        return await RequestAsync(
+        return await RequestAsync<string>(
                 WEBAPI_BASE + $"/ITwoFactorService/FinalizeAddAuthenticator/v1/?access_token={access_token}",
                 "POST",
                 data);
@@ -1244,7 +888,7 @@ public partial class SteamClient : IDisposable
     {
         var data = new NameValueCollection();
         data.Add("steamid", steamid);
-        return await RequestAsync(WEBAPI_BASE + $"/IUserAccountService/GetUserCountry/v1?access_token={access_token}",
+        return await RequestAsync<string>(WEBAPI_BASE + $"/IUserAccountService/GetUserCountry/v1?access_token={access_token}",
                 "POST", data);
     }
 
@@ -1253,38 +897,65 @@ public partial class SteamClient : IDisposable
         var data = new NameValueCollection();
         data.Add("phone_number", phone_number);
         data.Add("phone_country_code", contury_code);
-        return await RequestAsync(
+        return await RequestAsync<string>(
                     WEBAPI_BASE + $"/IPhoneService/SetAccountPhoneNumber/v1?access_token={access_token}", "POST",
                     data);
     }
 
     public async Task<string> AccountWaitingForEmailConfirmation(string access_token)
     {
-        return await RequestAsync(
+        return await RequestAsync<string>(
             WEBAPI_BASE + $"/IPhoneService/IsAccountWaitingForEmailConfirmation/v1?access_token={access_token}",
             "POST");
     }
 
     public async Task<string> SendPhoneVerificationCode(string access_token)
     {
-        return await RequestAsync(
+        return await RequestAsync<string>(
                 WEBAPI_BASE + $"/IPhoneService/SendPhoneVerificationCode/v1?access_token={access_token}",
                 "POST");
     }
 
     public async Task<string> RemoveAuthenticatorAsync(string? revocation_code, string steamguard_scheme, string access_token, string revocation_reason = "1")
     {
-        var data = new NameValueCollection();
-        data.Add("revocation_code", revocation_code ?? throw new Exception("恢复代码为null"));
-        data.Add("revocation_reason", "1");
-        data.Add("steamguard_scheme", steamguard_scheme);
-        return await RequestAsync(WEBAPI_BASE + $"/ITwoFactorService/RemoveAuthenticator/v1?access_token={access_token}", "POST",
+        revocation_code.ThrowIsNull("恢复代码为null");
+        var data = new NameValueCollection
+        {
+            { "revocation_code", revocation_code },
+            { "revocation_reason", "1" },
+            { "steamguard_scheme", steamguard_scheme }
+        };
+        return await RequestAsync<string>(WEBAPI_BASE + $"/ITwoFactorService/RemoveAuthenticator/v1?access_token={access_token}", "POST",
                 data);
+    }
+
+    public async Task<CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response> RemoveAuthenticatorViaChallengeStartSync(string access_token)
+    {
+        var base64string = ConvertBase64String(new CTwoFactor_RemoveAuthenticatorViaChallengeStart_Request());
+        var data = new NameValueCollection
+        {
+            { "input_protobuf_encoded", base64string }
+        };
+        return await RequestAsync<CTwoFactor_RemoveAuthenticatorViaChallengeStart_Response>(WEBAPI_BASE + $"/ITwoFactorService/RemoveAuthenticatorViaChallengeStart/v1?access_token={access_token}", "POST", data, isProtobuf: true);
+    }
+
+    public async Task<CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response> RemoveAuthenticatorViaChallengeContinueSync(string? sms_code, string access_token, bool generate_new_token = true)
+    {
+        var base64string = ConvertBase64String(new CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Request
+        {
+            sms_code = sms_code,
+            generate_new_token = generate_new_token
+        });
+        var data = new NameValueCollection
+        {
+            { "input_protobuf_encoded", base64string }
+        };
+        return await RequestAsync<CTwoFactor_RemoveAuthenticatorViaChallengeContinue_Response>(WEBAPI_BASE + $"/ITwoFactorService/RemoveAuthenticatorViaChallengeContinue/v1?access_token={access_token}", "POST", data, isProtobuf: true);
     }
 
     public async Task<string> TwoFAQueryTime()
     {
-        return await RequestAsync(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
+        return await RequestAsync<string>(SYNC_URL, "POST", null, null, null, SYNC_TIMEOUT);
     }
 
     // /// <summary>
@@ -1377,148 +1048,6 @@ public partial class SteamClient : IDisposable
 
     #region Web Request
 
-    ///// <summary>
-    ///// Get binary data web request
-    ///// </summary>
-    ///// <param name="url">url</param>
-    ///// <param name="method">GET or POST</param>
-    ///// <param name="formdata">optional form data</param>
-    ///// <param name="headers">optional headers</param>
-    ///// <returns>array of returned data</returns>
-    ////[Obsolete("use SendAsync")]
-    //[Obsolete("0 references", true)]
-    //public byte[]? GetData(string url, string? method = null, NameValueCollection? formdata = null, NameValueCollection? headers = null)
-    //{
-    //    return Request(url, method ?? "GET", formdata, headers);
-    //}
-
-    /// <summary>
-    /// Get string from web request
-    /// </summary>
-    /// <param name="url">url</param>
-    /// <param name="method">GET or POST</param>
-    /// <param name="formdata">optional form data</param>
-    /// <param name="headers">optional headers</param>
-    /// <param name="multiData">为Query语句补充的MultiData数据</param>
-    /// <returns>string of returned data</returns>
-    //[Obsolete("use SendAsync")]
-    public string GetString(string url, string? method = null, NameValueCollection? formdata = null, NameValueCollection? headers = null, string? multiData = null)
-    {
-        var data = Request(url, method ?? "GET", formdata, headers, multiData);
-        if (data == null || data.Length == 0)
-        {
-            return string.Empty;
-        }
-        else
-        {
-            return Encoding.UTF8.GetString(data);
-        }
-    }
-
-    /// <summary>
-    /// Make a request to Steam URL
-    /// </summary>
-    /// <param name="url">url</param>
-    /// <param name="method">GET or POST</param>
-    /// <param name="data">optional form data</param>
-    /// <param name="headers">optional headers</param>
-    /// <param name="multiData">为Query语句补充的Multi数据</param>
-    /// <returns>returned data</returns>
-    //[Obsolete("use SendAsync")]
-    protected byte[]? Request(string url, string method, NameValueCollection? data, NameValueCollection? headers,
-        string? multiData = null)
-    {
-        // ensure only one request per account at a time
-        lock (this)
-        {
-            // create form-encoded data for query or body
-            string query = data == null ? string.Empty : string.Join("&", Array.ConvertAll(data.AllKeys, key => string.Format("{0}={1}", HttpUtility.UrlEncode(key), HttpUtility.UrlEncode(data[key]))));
-            if (string.Compare(method, "GET", true) == 0)
-            {
-                url += (!url.Contains('?', StringComparison.CurrentCulture) ? "?" : "&") + query;
-            }
-
-            if (multiData != null) query += multiData;
-
-            // call the server
-            var httpClient = _httpClient;
-            if (headers != null)
-            {
-                for (int i = 0; i < headers.Count; i++)
-                {
-                    httpClient.DefaultRequestHeaders.Add(headers.AllKeys[i].ThrowIsNull(), headers.Get(i));
-                }
-            }
-
-            try
-            {
-                HttpResponseMessage responseMessage;
-                if (string.Compare(method, "POST", true) == 0)
-                {
-                    HttpContent content = new StringContent(query, Encoding.UTF8, "application/x-www-form-urlencoded");
-                    content.Headers.ContentLength = query.Length;
-                    responseMessage = httpClient.PostAsync(url, content).Result;
-                }
-                else
-                {
-                    responseMessage = httpClient.GetAsync(url).Result;
-                }
-
-                LogRequest(method, url, Session.Cookies, data, responseMessage.StatusCode.ToString() + " " + responseMessage.RequestMessage);
-
-                // OK?
-                if (responseMessage.StatusCode == HttpStatusCode.TooManyRequests)
-                {
-                    throw new WinAuthSteamToManyRequestException(Strings.Error_TooManyRequests);
-                }
-                if (responseMessage.StatusCode == HttpStatusCode.Forbidden)
-                {
-                    throw new WinAuthUnauthorisedSteamRequestException(new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage)));
-                }
-                if (responseMessage.StatusCode != HttpStatusCode.OK)
-                {
-                    throw new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode, responseMessage.RequestMessage));
-                }
-
-                // load the response
-                using MemoryStream ms = new();
-                byte[] buffer = new byte[4096];
-                int read;
-                while ((read = responseMessage.Content.ReadAsStream().Read(buffer, 0, 4096)) > 0)
-                {
-                    ms.Write(buffer, 0, read);
-                }
-
-                byte[] responsedata = ms.ToArray();
-
-                LogRequest(method, url, Session.Cookies, data, responsedata != null && responsedata.Length != 0 ? Encoding.UTF8.GetString(responsedata) : string.Empty);
-
-                return responsedata;
-            }
-            catch (Exception ex)
-            {
-                LogException(method, url, Session.Cookies, data, ex);
-
-                if (ex is WebException exception &&
-                    exception.Response is HttpWebResponse response)
-                {
-                    if (response.StatusCode == HttpStatusCode.Forbidden)
-                        throw new WinAuthUnauthorisedSteamRequestException(ex);
-
-                    // https://github.com/Jessecar96/SteamDesktopAuthenticator/blob/8a408f13ee24f70fffbc409cb0e050e924f4fe94/Steam%20Desktop%20Authenticator/BrowserRequestHandler.cs#L60
-                    // 302 错误为跳转到 steammobile:// 协议时产生，出现这种情况直接强制登出重新登录
-                    if (response.StatusCode == HttpStatusCode.Found)
-                    {
-                        throw new WinAuthInvalidSteamRequestException(string.Format("{0}: {1}", (int)response.StatusCode, response.StatusDescription), ex);
-                    }
-                }
-
-                if (ex is WinAuthInvalidSteamRequestException) throw;
-                else throw new WinAuthInvalidSteamRequestException(ex.Message, ex);
-            }
-        }
-    }
-
     /// <summary>
     /// Perform a request to the Steam WebAPI service
     /// </summary>
@@ -1529,8 +1058,8 @@ public partial class SteamClient : IDisposable
     /// <param name="headers"></param>
     /// <param name="timeout"></param>
     /// <returns>response body</returns>
-    async Task<string> RequestAsync(string url, string method, NameValueCollection? data = null,
-        CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0)
+    async Task<T> RequestAsync<T>(string url, string method, NameValueCollection? data = null,
+        CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0, bool isProtobuf = false)
     {
         // create form-encoded data for query or body
         var query = data == null
@@ -1580,10 +1109,19 @@ public partial class SteamClient : IDisposable
                 throw new WinAuthInvalidRequestException(string.Format("{0}: {1}", (int)responseMessage.StatusCode,
                     responseMessage.RequestMessage));
 
-            resultstring = await responseMessage.Content.ReadAsStringAsync();
+            if (isProtobuf)
+            {
+                using var responeStream = await responseMessage.Content.ReadAsStreamAsync();
+                var result = Serializer.Deserialize<T>(responeStream);
+                return result;
+            }
+            else
+            {
+                resultstring = await responseMessage.Content.ReadAsStringAsync();
+                return (T)(object)resultstring;
+            }
 
             LogRequest(method, url, cookies, data, resultstring);
-            return resultstring;
         }
         catch (Exception ex)
         {
@@ -1701,6 +1239,14 @@ public partial class SteamClient : IDisposable
 
     #region ToolMethod
 
+    static string ConvertBase64String<T>(T obj)
+    {
+        using var stream = new MemoryStream();
+        Serializer.Serialize(stream, obj);
+        var base64string = stream.ToArray().Base64Encode();
+        return base64string;
+    }
+
     /// <summary>
     /// Stop the current poller
     /// </summary>
@@ -1712,7 +1258,6 @@ public partial class SteamClient : IDisposable
             _pollerCancellation.Cancel();
             _pollerCancellation = null;
         }
-        Session.Confirmations = null;
     }
 
     /// <summary>

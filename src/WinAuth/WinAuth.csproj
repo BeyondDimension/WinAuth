@@ -49,6 +49,7 @@
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
 		<PackageReference Include="ReactiveUI" />
 		<PackageReference Include="ReactiveUI.Fody" />
+		<PackageReference Include="SteamKit2" />
 	</ItemGroup>
 	
 	<Import Project="..\TFM_NETX.props" />

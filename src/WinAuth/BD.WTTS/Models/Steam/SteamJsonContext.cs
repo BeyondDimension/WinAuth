@@ -1,3 +1,5 @@
+using WinAuth;
+
 namespace BD.WTTS.Models;
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
@@ -15,6 +17,7 @@ namespace BD.WTTS.Models;
 [JsonSerializable(typeof(SteamMobileDologinJsonStruct))]
 [JsonSerializable(typeof(SteamMobileConfGetListJsonStruct))]
 [JsonSerializable(typeof(RemoveAuthenticatorResponse))]
+[JsonSerializable(typeof(SteamClient.SteamSession))]
 public partial class SteamJsonContext : JsonSerializerContext
 {
 }

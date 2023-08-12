@@ -190,6 +190,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         public bool NoPhoneNumber { get; set; }
 
+        public bool ReplaceAuth { get; set; }
+
         //public string? OAuthToken { get; set; }
 
         // public bool RequiresLogin { get; set; }
@@ -383,8 +385,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         var tfaresponse =
             JsonSerializer.Deserialize<SteamDoLoginTfaJsonStruct>(response,
                 SteamJsonContext.Default.SteamDoLoginTfaJsonStruct);
-        tfaresponse.ThrowIsNull();
-        if (tfaresponse.Response == null)
+
+        if (tfaresponse?.Response == null)
         {
             state.AccessToken = null;
             state.Cookies = null;
@@ -436,7 +438,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         if (steamdata.SteamGuardScheme == string.Empty)
             steamdata.SteamGuardScheme = "2";
         SteamData = JsonSerializer.Serialize(steamdata,
-            SteamJsonContext.Default.SteamDoLoginSteamDataJsonStruct);
+            SteamJsonContext.Default.SteamConvertSteamDataJsonStruct);
 
         // calculate server drift
         var servertime = long.Parse(tfaresponse.Response.ServerTime) * 1000;
@@ -598,6 +600,61 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         var jsonObj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.RemoveAuthenticatorResponse);
         return jsonObj is { Response.Success: true };
+    }
+
+    /// <summary>
+    /// 申请 Steam 替换安全防护令牌验证码
+    /// </summary>
+    /// <param name="accessToken">Steam JWT Token</param>
+    /// <returns></returns>
+    public async Task<bool> RemoveAuthenticatorViaChallengeStartSync(string accessToken)
+    {
+        var response = await Client.RemoveAuthenticatorViaChallengeStartSync(accessToken);
+
+        return response != null;
+    }
+
+    /// <summary>
+    /// Steam替换安全防护令牌
+    /// </summary>
+    /// <param name="accessToken">Steam JWT Token</param>
+    /// <returns></returns>
+    public async Task<bool> RemoveAuthenticatorViaChallengeContinueSync(string? sms_code, string access_token, bool generate_new_token = true)
+    {
+        var response = await Client.RemoveAuthenticatorViaChallengeContinueSync(sms_code, access_token, generate_new_token);
+
+        if (!response.success || response.replacement_token == null)
+        {
+            Strings.Error_InvalidResponseFromSteam.Format(response);
+            return false;
+        }
+
+        // save data into this authenticator
+        SecretKey = response.replacement_token.shared_secret;
+        Serial = response.replacement_token.serial_number.ToString();
+        DeviceId = BuildRandomId();
+        SteamData = JsonSerializer.Serialize(new SteamConvertSteamDataJsonStruct
+        {
+            Secret_1 = response.replacement_token.secret_1.Base64Encode(),
+            Status = response.replacement_token.status,
+            ServerTime = response.replacement_token.server_time.ToString(),
+            AccountName = response.replacement_token.account_name,
+            TokenGid = response.replacement_token.token_gid,
+            IdentitySecret = response.replacement_token.identity_secret.Base64Encode(),
+            RevocationCode = response.replacement_token.revocation_code,
+            Uri = response.replacement_token.uri,
+            SteamId = response.replacement_token.steamid.ToString(),
+            SerialNumber = response.replacement_token.serial_number.ToString(),
+            SharedSecret = response.replacement_token.shared_secret.Base64Encode(),
+            SteamGuardScheme = response.replacement_token.steamguard_scheme.ToString(),
+        }, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct);
+
+        // calculate server drift
+        var servertime = (long)response.replacement_token.server_time * 1000;
+        ServerTimeDiff = servertime - CurrentTime;
+        LastServerTime = DateTime.Now.Ticks;
+
+        return true;
     }
 
     /// <summary>

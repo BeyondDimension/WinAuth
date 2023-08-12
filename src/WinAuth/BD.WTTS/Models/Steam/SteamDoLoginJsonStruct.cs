@@ -75,51 +75,7 @@ public sealed class SteamDoLoginHasPhoneJsonStruct
 public sealed class SteamDoLoginTfaJsonStruct
 {
     [JsonPropertyName("response")]
-    public SteamDoLoginSteamDataJsonStruct? Response { get; set; }
-}
-
-public sealed class SteamDoLoginSteamDataJsonStruct
-{
-    [JsonPropertyName("status")]
-    public int Status { get; set; }
-
-    [JsonPropertyName("shared_secret")]
-    public string SharedSecret { get; set; } = string.Empty;
-
-    [JsonPropertyName("serial_number")]
-    public string SerialNumber { get; set; } = string.Empty;
-
-    [JsonPropertyName("revocation_code")]
-    public string RevocationCode { get; set; } = string.Empty;
-
-    //实际上不会返回该串数据，只是为了SteamData方便序列化而加上
-    [JsonPropertyName("steamid")]
-    public string SteamId { get; set; } = string.Empty;
-
-    //实际上不会返回该串数据，只是为了SteamData方便序列化而加上
-    [JsonPropertyName("steamguard_scheme")]
-    public string SteamGuardScheme { get; set; } = string.Empty;
-
-    [JsonPropertyName("server_time")]
-    public string ServerTime { get; set; } = string.Empty;
-
-    [JsonPropertyName("uri")]
-    public string Uri { get; set; } = string.Empty;
-
-    [JsonPropertyName("account_name")]
-    public string AccountName { get; set; } = string.Empty;
-
-    [JsonPropertyName("token_gid")]
-    public string TokenGid { get; set; } = string.Empty;
-
-    [JsonPropertyName("identity_secret")]
-    public string IdentitySecret { get; set; } = string.Empty;
-
-    [JsonPropertyName("secret_1")]
-    public string Secret_1 { get; set; } = string.Empty;
-
-    [JsonPropertyName("phone_number_hint")]
-    public string PhoneNumberHint { get; set; } = string.Empty;
+    public SteamConvertSteamDataJsonStruct? Response { get; set; }
 }
 
 public sealed class SteamDoLoginFinalizeJsonStruct
