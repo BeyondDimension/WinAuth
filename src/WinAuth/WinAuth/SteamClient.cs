@@ -284,14 +284,19 @@ public partial class SteamClient : IDisposable
             if (string.IsNullOrEmpty(json))
                 throw new ArgumentNullException(nameof(json));
 
-            var session = System.Text.Json.JsonSerializer.Deserialize<SteamSession>(json);
-            if (session == null)
-                throw new ArgumentNullException(nameof(session));
+            try
+            {
+                var session = System.Text.Json.JsonSerializer.Deserialize<SteamSession>(json);
+                if (session == null)
+                    throw new ArgumentNullException(nameof(session));
 
-            this.SteamID = session.SteamID;
-            this.AccessToken = session.AccessToken;
-            this.RefreshToken = session.RefreshToken;
-            this.SessionID = session.SessionID;
+                this.SteamID = session.SteamID;
+                this.AccessToken = session.AccessToken;
+                this.RefreshToken = session.RefreshToken;
+                this.SessionID = session.SessionID;
+            }
+            catch
+            { }
         }
 
         [JsonPropertyName("steamid")]
@@ -399,6 +404,11 @@ public partial class SteamClient : IDisposable
             if (digits % 2 == 0)
                 return result;
             return result + random.Next(16).ToString("X");
+        }
+
+        public override string ToString()
+        {
+            return JsonSerializer.Serialize(this);
         }
 
         private class SteamAccessToken
