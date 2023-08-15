@@ -51,6 +51,10 @@
 		<PackageReference Include="ReactiveUI.Fody" />
 		<PackageReference Include="SteamKit2" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\ref\SteamClient\src\BD.SteamClient\BD.SteamClient.csproj" />
+	</ItemGroup>
 	
 	<Import Project="..\TFM_NETX.props" />
 	<Import Project="..\GeneratePackage.props" />
