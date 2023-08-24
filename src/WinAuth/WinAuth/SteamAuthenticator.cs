@@ -309,7 +309,26 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         }
     }
 
-    public async Task<(string encryptedPassword64, ulong timestamp)> GetRsaKeyAndEncryptedPasswordAsync(
+    /// <summary>
+    /// Get (or create) the current Steam client for this Authenticator
+    /// </summary>
+    /// <returns>current or new SteamClient</returns>
+    public SteamClient GetClient(string? language = null)
+    {
+        lock (this)
+        {
+            Client ??= new SteamClient(this);
+            Client.SessionSet(SessionData, language);
+            return Client;
+        }
+    }
+
+    async Task CheckCookiesAsync(EnrollState state)
+    {
+        await Client.CheckCookiesAsync(state.Cookies, state.Language);
+    }
+
+    public async Task<(SteamGetRsaKeyJsonStruct response, string encryptedPassword)> GetRsaKeyAndEncryptedPasswordAsync(
         EnrollState state)
     {
         state.Username.ThrowIsNull();
@@ -319,7 +338,32 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         state.Password = U0000_U007F_Regex().Replace(state.Password, string.Empty);
 
         // get the user's RSA key
-        return await AccountService.GetRSAkeyV2Async(state.Username, state.Password);
+        var response = await Client.GetRSAKeyAsync(donotache_value, state.Username, state.Cookies);
+
+        var rsaresponse =
+            JsonSerializer.Deserialize<SteamGetRsaKeyJsonStruct>(response,
+                SteamJsonContext.Default.SteamGetRsaKeyJsonStruct);
+        if (rsaresponse?.Success != true)
+            throw new WinAuthInvalidEnrollResponseException(
+                $"Cannot get steam information for user: {state.Username}, response: {response}");
+        rsaresponse.PublicKeyExp.ThrowIsNull();
+        rsaresponse.PublicKeyMod.ThrowIsNull();
+        rsaresponse.TimeStamp.ThrowIsNull();
+        // encrypt password with RSA key
+        //RNGCryptoServiceProvider random = new();
+        byte[] encryptedPassword;
+        using (var rsa = new RSACryptoServiceProvider())
+        {
+            var passwordBytes = Encoding.ASCII.GetBytes(state.Password);
+            var p = rsa.ExportParameters(false);
+            p.Exponent = StringToByteArray(rsaresponse.PublicKeyExp);
+            p.Modulus = StringToByteArray(rsaresponse.PublicKeyMod);
+            rsa.ImportParameters(p);
+            encryptedPassword = rsa.Encrypt(passwordBytes, false);
+        }
+
+        return (rsaresponse, Convert.ToBase64String(encryptedPassword));
+        return (rsaresponse, Convert.ToBase64String(encryptedPassword));
     }
 
     /// <summary>
