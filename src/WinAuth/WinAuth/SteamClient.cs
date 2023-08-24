@@ -792,6 +792,7 @@ public partial class SteamClient : IDisposable
             { "tag", conf },
         };
 
+        //var multiData = new NameValueCollection();
         foreach (var item in trades)
         {
             data.Add("cid[]", item.Key);
@@ -802,6 +803,10 @@ public partial class SteamClient : IDisposable
         {
             // https://steamcommunity.com/mobileconf/multiajaxop?a=SteamID&tag=list&m=react&t=servertime&p=EncodeURL(deviceID)&k=EncodeURL(timehash)&op={accept ? "allow" : "cancel"}
             // post 请求
+            // data 为 NameValueCollection 
+            // 现在可单条请求处理多个交易 循环以下代码添加批量的 cid 和 ck 即可
+            // data.Add("cid[]", id);
+            // data.Add("ck[]", key);
             string response = await RequestAsync<string>(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data);
 
             if (string.IsNullOrEmpty(response) == true)
@@ -1181,6 +1186,10 @@ public partial class SteamClient : IDisposable
         catch (Exception ex)
         {
             LogException(method, url, cookies, data, ex);
+
+            if (ex is WebException exception && exception.Response != null &&
+                ((HttpWebResponse)exception.Response).StatusCode == HttpStatusCode.Forbidden)
+                throw new WinAuthUnauthorisedRequestException(ex);
 
             throw new WinAuthInvalidRequestException(ex.Message, ex);
         }

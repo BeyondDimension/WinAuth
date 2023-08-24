@@ -21,7 +21,8 @@ using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
 using System.Collections.Specialized;
-using BD.SteamClient.Services;
+using System.Net.Http.Client;
+using static WinAuth.SteamClient.Utils;
 using Exception = System.Exception;
 
 namespace WinAuth;
@@ -47,8 +48,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     public SteamAuthenticator() : base(CODE_DIGITS)
     {
         Issuer = STEAM_ISSUER;
-        AutenticatorService = Ioc.Get<ISteamAuthenticatorService>();
-        AccountService = Ioc.Get<ISteamAccountService>();
+        Client = GetClient();
     }
 
     [IgnoreDataMember]
@@ -227,7 +227,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     static DateTime _lastSyncError = DateTime.MinValue;
 
     /// <summary>
-    /// Current AutenticatorService instance
+    /// Current Steam client instance
     /// </summary>
     [IgnoreDataMember]
     [MPIgnore]
@@ -237,20 +237,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public ISteamAuthenticatorService AutenticatorService { get; private set; }
+    public SteamClient Client { get; private set; }
 
-    /// <summary>
-    /// Current AutenticatorService instance
-    /// </summary>
-    [IgnoreDataMember]
-    [MPIgnore]
-#if __HAVE_N_JSON__
-    [N_JsonIgnore]
-#endif
-#if !__NOT_HAVE_S_JSON__
-    [S_JsonIgnore]
-#endif
-    public ISteamAccountService AccountService { get; private set; }
     #endregion
 
     /// <summary>
@@ -266,6 +254,14 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     {
         get
         {
+            if (Client != null && Client.Session != null)
+                SessionData = Client.Session.ToString();
+
+            //if (Logger != null)
+            //{
+            //	Logger.Debug("Get Steam data: {0}, Session:{1}", (SteamData ?? string.Empty).Replace("\n"," ").Replace("\r",""), (SessionData ?? string.Empty).Replace("\n", " ").Replace("\r", ""));
+            //}
+
             // this is the key |  serial | deviceid
             Serial.ThrowIsNull();
             DeviceId.ThrowIsNull();
@@ -294,6 +290,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                     // convert old recovation code into SteamData json
                     SteamData = "{\"revocation_code\":\"" + SteamData + "\"}";
                 var session = parts.Length > 4 ? Encoding.UTF8.GetString(StringToByteArray(parts[4])) : null;
+
+                //if (Logger != null)
+                //{
+                //	Logger.Debug("Set Steam data: {0}, Session:{1}", (SteamData ?? string.Empty).Replace("\n", " ").Replace("\r", ""), (SessionData ?? string.Empty).Replace("\n", " ").Replace("\r", ""));
+                //}
 
                 if (string.IsNullOrEmpty(session) == false)
                     SessionData = session;
@@ -331,6 +332,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     public async Task<(SteamGetRsaKeyJsonStruct response, string encryptedPassword)> GetRsaKeyAndEncryptedPasswordAsync(
         EnrollState state)
     {
+        await CheckCookiesAsync(state);
         state.Username.ThrowIsNull();
         state.Password.ThrowIsNull();
         // Steam strips any non-ascii chars from username and password
@@ -373,14 +375,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <returns>调用成功返回true</returns>
     public async Task<bool> AddAuthenticatorAsync(EnrollState state)
     {
-        state.SteamId.ThrowIsNull();
         if (string.IsNullOrEmpty(state.AccessToken)) throw new Exception(Strings.Error_InvalidLoginInfo);
         state.Error = null;
         if (ServerTimeDiff == default)
             await Task.Run(Sync);
         var deviceId = BuildRandomId();
 
-        var response = await AutenticatorService.AddAuthenticatorAsync(state.SteamId, ServerTime.ToString(), deviceId, state.AccessToken);
+        var response = await Client.AddAuthenticatorAsync(state.SteamId, ServerTime.ToString(), deviceId, state.AccessToken);
         var tfaresponse =
             JsonSerializer.Deserialize<SteamDoLoginTfaJsonStruct>(response,
                 SteamJsonContext.Default.SteamDoLoginTfaJsonStruct);
@@ -459,12 +460,11 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             await Task.Run(Sync);
         // finalize adding the authenticator
 
-        state.SteamId.ThrowIsNull();
         // try and authorise
         var retries = 0;
         while (state.RequiresActivation == true && retries < ENROLL_ACTIVATE_RETRIES)
         {
-            var response = await AutenticatorService.FinalizeAddAuthenticatorAsync(state.SteamId, state.ActivationCode, CalculateCode(false), ServerTime.ToString(), state.AccessToken);
+            var response = await Client.FinalizeAddAuthenticatorAsync(state.SteamId, state.ActivationCode, CalculateCode(false), ServerTime.ToString(), state.AccessToken);
             var finalizeresponse = JsonSerializer.Deserialize<SteamDoLoginFinalizeJsonStruct>(response,
                 SteamJsonContext.Default.SteamDoLoginFinalizeJsonStruct);
             finalizeresponse.ThrowIsNull();
@@ -527,10 +527,10 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         return true;
     }
 
-    public async Task<string?> GetUserCountry(string steamId)
+    public async Task<string?> GetUserCountry(string accessToken, string steamId)
     {
 
-        var response = await AutenticatorService.GetUserCountry(steamId);
+        var response = await Client.GetUserCountry(accessToken, steamId);
         var jsonObj = JsonSerializer.Deserialize(response, SteamPhoneNumberJsonContext.Default.GetUserCountryResponse);
         return jsonObj?.Response?.Country;
     }
@@ -553,10 +553,10 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         if (!state.RequiresEmailConfirmPhone)
         {
             if (string.IsNullOrEmpty(countryCode))
-                countryCode = await GetUserCountry(state.SteamId);
+                countryCode = await GetUserCountry(state.AccessToken, state.SteamId);
             var data = new NameValueCollection();
 
-            response = await AutenticatorService.AddPhoneNumberAsync(state.SteamId, phoneNumber, countryCode);
+            response = await Client.AddPhoneNumberAsync(phoneNumber, countryCode, state.AccessToken);
             var steamAddPhoneNumberResponse =
                 JsonSerializer.Deserialize(response, SteamPhoneNumberJsonContext.Default.SteamAddPhoneNumberResponse);
             steamAddPhoneNumberResponse.ThrowIsNull();
@@ -569,7 +569,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             state.RequiresEmailConfirmPhone = true;
         }
 
-        response = await AutenticatorService.AccountWaitingForEmailConfirmation(state.SteamId);
+        response = await Client.AccountWaitingForEmailConfirmation(state.AccessToken);
 
         var waitingForEmailConfirmationResponse =
             JsonSerializer.Deserialize(response,
@@ -580,7 +580,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         if (!waitingForEmailConfirmationResponse.Response.AwaitingEmailConfirmation)
         {
-            await AutenticatorService.SendPhoneVerificationCode(state.SteamId);
+            await Client.SendPhoneVerificationCode(state.AccessToken);
             state.RequiresEmailConfirmPhone = false;
             return null;
         }
@@ -594,9 +594,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <param name="accessToken">Steam账户验证Token</param>
     /// <param name="scheme">1 = 移除令牌验证器但保留邮箱验证，2 = 移除所有防护</param>
     /// <returns></returns>
-    public async Task<bool> RemoveAuthenticatorAsync(string steam_id, int scheme = 1)
+    public async Task<bool> RemoveAuthenticatorAsync(string accessToken, int scheme = 1)
     {
-        var response = await AutenticatorService.RemoveAuthenticatorAsync(steam_id, RecoveryCode, scheme.ToString());
+        var response = await Client.RemoveAuthenticatorAsync(RecoveryCode, scheme.ToString(), accessToken);
 
         var jsonObj = JsonSerializer.Deserialize(response, SteamJsonContext.Default.RemoveAuthenticatorResponse);
         return jsonObj is { Response.Success: true };
@@ -607,9 +607,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// </summary>
     /// <param name="accessToken">Steam JWT Token</param>
     /// <returns></returns>
-    public async Task<bool> RemoveAuthenticatorViaChallengeStartSync(string steam_id)
+    public async Task<bool> RemoveAuthenticatorViaChallengeStartSync(string accessToken)
     {
-        var response = await AutenticatorService.RemoveAuthenticatorViaChallengeStartSync(steam_id);
+        var response = await Client.RemoveAuthenticatorViaChallengeStartSync(accessToken);
 
         return response != null;
     }
@@ -619,38 +619,38 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// </summary>
     /// <param name="accessToken">Steam JWT Token</param>
     /// <returns></returns>
-    public async Task<bool> RemoveAuthenticatorViaChallengeContinueSync(string steam_id, string? sms_code, bool generate_new_token = true)
+    public async Task<bool> RemoveAuthenticatorViaChallengeContinueSync(string? sms_code, string access_token, bool generate_new_token = true)
     {
-        var response = await AutenticatorService.RemoveAuthenticatorViaChallengeContinueSync(steam_id, sms_code, generate_new_token);
+        var response = await Client.RemoveAuthenticatorViaChallengeContinueSync(sms_code, access_token, generate_new_token);
 
-        if (!response.Success || response.ReplacementToken == null)
+        if (!response.success || response.replacement_token == null)
         {
             Strings.Error_InvalidResponseFromSteam.Format(response);
             return false;
         }
 
         // save data into this authenticator
-        SecretKey = response.ReplacementToken.SharedSecret.ToByteArray();
-        Serial = response.ReplacementToken.SerialNumber.ToString();
+        SecretKey = response.replacement_token.shared_secret;
+        Serial = response.replacement_token.serial_number.ToString();
         DeviceId = BuildRandomId();
         SteamData = JsonSerializer.Serialize(new SteamConvertSteamDataJsonStruct
         {
-            Secret_1 = response.ReplacementToken.Secret1.ToBase64().Base64Encode(),
-            Status = response.ReplacementToken.Status,
-            ServerTime = response.ReplacementToken.ServerTime.ToString(),
-            AccountName = response.ReplacementToken.AccountName,
-            TokenGid = response.ReplacementToken.TokenGid,
-            IdentitySecret = response.ReplacementToken.IdentitySecret.ToBase64().Base64Encode(),
-            RevocationCode = response.ReplacementToken.RevocationCode,
-            Uri = response.ReplacementToken.Uri,
-            SteamId = response.ReplacementToken.Steamid.ToString(),
-            SerialNumber = response.ReplacementToken.SerialNumber.ToString(),
-            SharedSecret = response.ReplacementToken.SharedSecret.ToBase64().Base64Encode(),
-            SteamGuardScheme = response.ReplacementToken.SteamguardScheme.ToString(),
+            Secret_1 = response.replacement_token.secret_1.Base64Encode(),
+            Status = response.replacement_token.status,
+            ServerTime = response.replacement_token.server_time.ToString(),
+            AccountName = response.replacement_token.account_name,
+            TokenGid = response.replacement_token.token_gid,
+            IdentitySecret = response.replacement_token.identity_secret.Base64Encode(),
+            RevocationCode = response.replacement_token.revocation_code,
+            Uri = response.replacement_token.uri,
+            SteamId = response.replacement_token.steamid.ToString(),
+            SerialNumber = response.replacement_token.serial_number.ToString(),
+            SharedSecret = response.replacement_token.shared_secret.Base64Encode(),
+            SteamGuardScheme = response.replacement_token.steamguard_scheme.ToString(),
         }, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct);
 
         // calculate server drift
-        var servertime = (long)response.ReplacementToken.ServerTime * 1000;
+        var servertime = (long)response.replacement_token.server_time * 1000;
         ServerTimeDiff = servertime - CurrentTime;
         LastServerTime = DateTime.Now.Ticks;
 
@@ -895,7 +895,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         try
         {
-            var response = AutenticatorService.TwoFAQueryTime().GetAwaiter().GetResult();
+            var response = Client.TwoFAQueryTime().GetAwaiter().GetResult();
             var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
             var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
             json.ThrowIsNull();
