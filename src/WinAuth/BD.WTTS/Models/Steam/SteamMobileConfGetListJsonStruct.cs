@@ -5,6 +5,9 @@ public class SteamMobileConfGetListJsonStruct
     [JsonPropertyName("success")]
     public bool Success { get; set; }
 
+    [JsonPropertyName("needauth")]
+    public bool NeedAuth { get; set; }
+
     [JsonPropertyName("conf")]
     public SteamMobileTradeConf[]? Conf { get; set; }
 }

@@ -439,9 +439,9 @@ public partial class SteamClient : IDisposable
     /// Login state fields
     /// </summary>
     public bool InvalidLogin;
-    public bool RequiresCaptcha;
-    public string? CaptchaId;
-    public string? CaptchaUrl;
+    //public bool RequiresCaptcha;
+    //public string? CaptchaId;
+    //public string? CaptchaUrl;
     public bool Requires2FA;
     public bool RequiresEmailAuth;
     public string? EmailDomain;
@@ -560,9 +560,6 @@ public partial class SteamClient : IDisposable
     public void Clear()
     {
         InvalidLogin = false;
-        RequiresCaptcha = false;
-        CaptchaId = null;
-        CaptchaUrl = null;
         RequiresEmailAuth = false;
         EmailDomain = null;
         Requires2FA = false;
@@ -640,7 +637,7 @@ public partial class SteamClient : IDisposable
     /// </summary>
     /// <returns>list of Confirmation objects</returns>
     //[Obsolete("use GetConfirmationsAsync")]
-    public async Task<IEnumerable<SteamMobileTradeConf>>? GetConfirmations()
+    public async Task<IEnumerable<SteamMobileTradeConf>?> GetConfirmations()
     {
         long servertime = (CurrentTime + Authenticator.ServerTimeDiff) / 1000L;
 
@@ -671,32 +668,16 @@ public partial class SteamClient : IDisposable
 
         var jsonObject = JsonSerializer.Deserialize(html, SteamJsonContext.Default.SteamMobileConfGetListJsonStruct);
 
-        if (jsonObject?.Conf == null) return null;
+        jsonObject.ThrowIsNull();
 
-        //if (Session.Confirmations != null)
-        //{
-        //    lock (Session.Confirmations)
-        //    {
-        //        Session.Confirmations.Ids ??= new List<string>();
-        //        foreach (var conf in jsonObject.Conf)
-        //        {
-        //            // conf.IsNew = Session.Confirmations.Ids.Contains(conf.Id) == false;
-        //            // if (conf.IsNew == true)
-        //            // {
-        //            //     Session.Confirmations.Ids.Add(conf.Id);
-        //            // }
-        //            if (!Session.Confirmations.Ids.Contains(conf.Id)) Session.Confirmations.Ids.Add(conf.Id);
-        //        }
-        //        var newIds = jsonObject.Conf.Select(t => t.Id).ToList();
-        //        foreach (var confId in Session.Confirmations.Ids)
-        //        {
-        //            if (newIds.Contains(confId) == false)
-        //            {
-        //                Session.Confirmations.Ids.Remove(confId);
-        //            }
-        //        }
-        //    }
-        //}
+        //登录状态失效
+        if (jsonObject.NeedAuth == true)
+        {
+            throw new WinAuthUnauthorisedSteamRequestException();
+        }
+
+        if (jsonObject.Conf == null)
+            return null;
 
         return jsonObject.Conf;
     }
