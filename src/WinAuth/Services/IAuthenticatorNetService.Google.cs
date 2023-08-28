@@ -3,5 +3,5 @@ namespace BD.WTTS.Models;
 
 public interface IGoogleNetService
 {
-    HttpResponseMessage TimeSync();
+    Task<HttpResponseMessage> TimeSync();
 }

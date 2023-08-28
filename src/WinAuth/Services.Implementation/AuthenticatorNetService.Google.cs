@@ -5,11 +5,8 @@ using System.Net.Http.Client;
 
 public sealed partial class GoogleNetService : IGoogleNetService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-
-    public GoogleNetService(IHttpClientFactory httpClientFactory)
+    public GoogleNetService()
     {
-        _httpClientFactory = httpClientFactory;
     }
 
     /// <summary>
@@ -17,14 +14,14 @@ public sealed partial class GoogleNetService : IGoogleNetService
     /// </summary>
     const string TIME_SYNC_URL = "http://www.google.com";
 
-    public HttpResponseMessage TimeSync()
+    public async Task<HttpResponseMessage> TimeSync()
     {
         using var requestMessage = new HttpRequestMessage(HttpMethod.Get, TIME_SYNC_URL)
         {
             Content = new StringContent(string.Empty, Encoding.UTF8, "text/html"),
         };
-        using var client = _httpClientFactory.CreateClient();
+        using var client = new HttpClient();
         client.Timeout = new TimeSpan(0, 0, 5);
-        return client.Send(requestMessage);
+        return await client.SendAsync(requestMessage);
     }
 }

@@ -1,7 +1,7 @@
 // ReSharper disable once CheckNamespace
 namespace BD.WTTS.Models;
 
-public abstract partial class AuthenticatorValueDTO : IAuthenticatorValueDTO
+public partial class AuthenticatorValueDTO : IAuthenticatorValueDTO
 {
     public AuthenticatorValueDTO()
     {
@@ -14,10 +14,4 @@ public abstract partial class AuthenticatorValueDTO : IAuthenticatorValueDTO
     }
 
     bool IExplicitHasValue.ExplicitHasValue() => ExplicitHasValue();
-}
-
-[Obsolete("use AuthenticatorValueDTO", true)]
-public abstract partial class GAPAuthenticatorValueDTO : AuthenticatorValueDTO
-{
-
 }

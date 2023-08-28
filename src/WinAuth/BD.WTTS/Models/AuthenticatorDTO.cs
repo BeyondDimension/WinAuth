@@ -1,9 +1,16 @@
+using Org.BouncyCastle.Asn1.Cms;
+
 namespace BD.WTTS.Models;
 
 /// <inheritdoc cref="IAuthenticatorDTO"/>
 [MessagePackObject(keyAsPropertyName: true)]
 public sealed partial class AuthenticatorDTO : IAuthenticatorDTO
 {
+    public AuthenticatorDTO()
+    {
+        Value = new AuthenticatorValueDTO();
+    }
+
     [MPIgnore, N_JsonIgnore, S_JsonIgnore]
     public ushort Id { get; set; }
 
@@ -20,7 +27,7 @@ public sealed partial class AuthenticatorDTO : IAuthenticatorDTO
 
     public DateTimeOffset LastUpdate { get; set; }
 
-    public IAuthenticatorValueDTO? Value { get; set; }
+    public IAuthenticatorValueDTO Value { get; set; }
 
     bool IExplicitHasValue.ExplicitHasValue()
     {

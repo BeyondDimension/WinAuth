@@ -10,7 +10,7 @@ public static class AuthenticatorNetService
 
     public static BattleNetService BattleNet = new BattleNetService(_httpClientFactory);
 
-    public static GoogleNetService Google = new GoogleNetService(_httpClientFactory);
+    public static GoogleNetService Google = new GoogleNetService();
 
     public static HOTPNetService HOTP = new HOTPNetService(_httpClientFactory);
 

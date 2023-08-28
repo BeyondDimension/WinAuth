@@ -65,7 +65,7 @@ partial class AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public abstract AuthenticatorPlatform Platform { get; }
+    public virtual AuthenticatorPlatform Platform { get; }
 
     [IgnoreDataMember]
     [MPIgnore]
@@ -331,7 +331,10 @@ partial class AuthenticatorValueDTO
         return code;
     }
 
-    public abstract void Sync();
+    public virtual void Sync()
+    {
+
+    }
 
     #region Load / Save
 

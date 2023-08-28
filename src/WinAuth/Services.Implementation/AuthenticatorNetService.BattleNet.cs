@@ -65,8 +65,7 @@ public sealed class BattleNetService : IBattleNetService
         {
             Content = new StringContent(string.Empty, Encoding.UTF8, "application/json"),
         };
-        using var httpClient = _httpClientFactory.CreateClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(10);
+        var httpClient = _httpClientFactory.CreateClient();
         return await httpClient.SendAsync(requestMessage);
     }
 
@@ -76,7 +75,7 @@ public sealed class BattleNetService : IBattleNetService
         {
             Content = new StringContent(Encoding.UTF8.GetString(encrypted, 0, encrypted.Length), Encoding.UTF8, "application/octet-stream"),
         };
-        using var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient();
         requestMessage.Content.Headers.ContentLength = encrypted.Length;
 
         return await httpClient.SendAsync(requestMessage);
@@ -85,9 +84,7 @@ public sealed class BattleNetService : IBattleNetService
     public HttpResponseMessage Sync(string Region)
     {
         using var requestMessage = new HttpRequestMessage(HttpMethod.Get, GetMobileUrl(Region) + SYNC_PATH);
-        using var httpClient = _httpClientFactory.CreateClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(5);
-
+        var httpClient = _httpClientFactory.CreateClient();
         return httpClient.Send(requestMessage);
     }
 
@@ -98,7 +95,7 @@ public sealed class BattleNetService : IBattleNetService
             Content = new StringContent(Encoding.UTF8.GetString(serialBytes, 0, serialBytes.Length), Encoding.UTF8, "application/octet-stream"),
         };
         requestMessage.Content.Headers.ContentLength = serialBytes.Length;
-        using var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient();
         return await httpClient.SendAsync(requestMessage);
     }
 
@@ -109,7 +106,7 @@ public sealed class BattleNetService : IBattleNetService
             Content = new StringContent(Encoding.UTF8.GetString(postbytes, 0, postbytes.Length), Encoding.UTF8, "application/octet-stream"),
         };
         requestMessage.Content.Headers.ContentLength = postbytes.Length;
-        using var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient();
         return await httpClient.SendAsync(requestMessage);
     }
 }

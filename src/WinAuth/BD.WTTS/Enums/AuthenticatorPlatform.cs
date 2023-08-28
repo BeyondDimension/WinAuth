@@ -12,4 +12,6 @@ public enum AuthenticatorPlatform : byte
     Google = 12,
 
     HOTP = 13,
+
+    TOTP = 14,
 }

@@ -883,7 +883,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Synchronise this authenticator's time with Steam.
     /// </summary>
-    public override void Sync()
+    public override async void Sync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -895,7 +895,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         try
         {
-            var response = Client.TwoFAQueryTime().GetAwaiter().GetResult();
+            var response = await Client.TwoFAQueryTime();
             var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
             var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
             json.ThrowIsNull();

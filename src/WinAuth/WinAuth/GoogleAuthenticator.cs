@@ -84,7 +84,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Synchronise this authenticator's time with Google. We update our data record with the difference from our UTC time.
     /// </summary>
-    public override void Sync()
+    public override async void Sync()
     {
         // check if data is protected
         if (SecretKey == null && EncryptedData != null)
@@ -101,7 +101,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
         try
         {
             // we use the Header response field from a request to www.google.come
-            using var response = AuthenticatorNetService.Google.TimeSync();
+            using var response = await AuthenticatorNetService.Google.TimeSync();
 
             // OK?
             if (response.StatusCode != HttpStatusCode.OK)
@@ -129,7 +129,7 @@ public class GoogleAuthenticator : AuthenticatorValueDTO
             // clear any sync error
             _lastSyncError = DateTime.MinValue;
         }
-        catch (WebException)
+        catch
         {
             // don't retry for a while after error
             _lastSyncError = DateTime.Now;
