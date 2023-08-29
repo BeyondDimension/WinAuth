@@ -711,7 +711,7 @@ partial class AuthenticatorValueDTO
         }
         else if (ServerTimeDiff == 0 || LastServerTime == 0 || LastServerTime < DateTime.Now.AddHours(-24).Ticks)
         {
-            Sync();
+            Task.Run(Sync).ForgetAndDispose();
             return true;
         }
         else
