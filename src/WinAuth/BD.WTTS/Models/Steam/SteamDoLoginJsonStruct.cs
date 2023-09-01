@@ -1,3 +1,5 @@
+using Converter;
+
 namespace BD.WTTS.Models;
 
 public sealed class SteamDoLoginJsonStruct
@@ -119,8 +121,9 @@ public sealed class SteamConvertSteamDataJsonStruct
     [JsonPropertyName("steamguard_scheme")]
     public string SteamGuardScheme { get; set; } = string.Empty;
 
+    [JsonConverter(typeof(SteamDataConverter))]
     [JsonPropertyName("server_time")]
-    public string ServerTime { get; set; } = string.Empty;
+    public long ServerTime { get; set; }
 
     [JsonPropertyName("uri")]
     public string Uri { get; set; } = string.Empty;

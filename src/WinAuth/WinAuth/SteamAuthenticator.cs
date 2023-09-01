@@ -17,6 +17,7 @@
  */
 
 using BD.WTTS.Models;
+using Converter;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
@@ -441,7 +442,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             SteamJsonContext.Default.SteamConvertSteamDataJsonStruct);
 
         // calculate server drift
-        var servertime = long.Parse(tfaresponse.Response.ServerTime) * 1000;
+        var servertime = tfaresponse.Response.ServerTime * 1000;
         ServerTimeDiff = servertime - CurrentTime;
         LastServerTime = DateTime.Now.Ticks;
 
@@ -637,7 +638,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         {
             Secret_1 = response.replacement_token.secret_1.Base64Encode(),
             Status = response.replacement_token.status,
-            ServerTime = response.replacement_token.server_time.ToString(),
+            ServerTime = (long)response.replacement_token.server_time,
             AccountName = response.replacement_token.account_name,
             TokenGid = response.replacement_token.token_gid,
             IdentitySecret = response.replacement_token.identity_secret.Base64Encode(),
@@ -973,6 +974,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// </summary>
     /// <returns>Random string</returns>
     static string BuildRandomId() => "android:" + Guid.NewGuid().ToString();
+
+    SteamConvertSteamDataJsonStruct? SteamDataDeserialize()
+    {
+        if (string.IsNullOrEmpty(SteamData)) return null;
+        var data = JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct);
+        return data;
+    }
 
     /// <summary>
     /// Log an exception from a Request
