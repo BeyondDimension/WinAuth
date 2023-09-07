@@ -8,6 +8,8 @@ namespace BD.WTTS.Models.Abstractions;
 /// </summary>
 [MPUnion((int)AuthenticatorPlatform.BattleNet, typeof(BattleNetAuthenticator))]
 [MPUnion((int)AuthenticatorPlatform.Google, typeof(GoogleAuthenticator))]
+[MPUnion((int)AuthenticatorPlatform.TOTP, typeof(TOTPAuthenticator))]
+[MPUnion((int)AuthenticatorPlatform.HOTP, typeof(HOTPAuthenticator))]
 [MPUnion((int)AuthenticatorPlatform.Microsoft, typeof(MicrosoftAuthenticator))]
 [MPUnion((int)AuthenticatorPlatform.Steam, typeof(SteamAuthenticator))]
 public partial interface IAuthenticatorValueDTO : IExplicitHasValue
