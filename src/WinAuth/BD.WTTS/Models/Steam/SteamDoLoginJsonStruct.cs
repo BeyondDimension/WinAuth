@@ -115,13 +115,15 @@ public sealed class SteamConvertSteamDataJsonStruct
     [JsonPropertyName("revocation_code")]
     public string RevocationCode { get; set; } = string.Empty;
 
+    [JsonConverter(typeof(SteamDataLongConverter))]
     [JsonPropertyName("steamid")]
-    public string SteamId { get; set; } = string.Empty;
+    public long SteamId { get; set; }
 
+    [JsonConverter(typeof(SteamDataStringConverter))]
     [JsonPropertyName("steamguard_scheme")]
     public string SteamGuardScheme { get; set; } = string.Empty;
 
-    [JsonConverter(typeof(SteamDataConverter))]
+    [JsonConverter(typeof(SteamDataLongConverter))]
     [JsonPropertyName("server_time")]
     public long ServerTime { get; set; }
 

@@ -1,6 +1,6 @@
 namespace Converter;
 
-public class SteamDataConverter : JsonConverter<long>
+public class SteamDataLongConverter : JsonConverter<long>
 {
     public override long Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

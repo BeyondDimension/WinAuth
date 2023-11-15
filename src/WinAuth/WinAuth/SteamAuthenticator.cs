@@ -119,9 +119,9 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #if !__NOT_HAVE_S_JSON__
     [S_JsonIgnore]
 #endif
-    public string? SteamId64 => string.IsNullOrEmpty(SteamData)
+    public long? SteamId64 => string.IsNullOrEmpty(SteamData)
         ? null
-        : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.SteamId;
+        : JsonSerializer.Deserialize(SteamData, SteamJsonContext.Default.SteamConvertSteamDataJsonStruct)?.SteamId ?? 0;
 
     /// <summary>
     /// JSON session data
@@ -185,7 +185,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         [MessagePackFormatter(typeof(CookieFormatter))]
         public CookieContainer? Cookies { get; set; }
 
-        public string? SteamId { get; set; }
+        public long SteamId { get; set; }
 
         public string? PhoneNumber { get; set; }
 
@@ -382,7 +382,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             await Task.Run(Sync);
         var deviceId = BuildRandomId();
 
-        var response = await Client.AddAuthenticatorAsync(state.SteamId, ServerTime.ToString(), deviceId, state.AccessToken);
+        var response = await Client.AddAuthenticatorAsync(state.SteamId.ToString(), ServerTime.ToString(), deviceId, state.AccessToken);
         var tfaresponse =
             JsonSerializer.Deserialize<SteamDoLoginTfaJsonStruct>(response,
                 SteamJsonContext.Default.SteamDoLoginTfaJsonStruct);
@@ -434,7 +434,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         // add the steamid into the data
         var steamdata = tfaresponse.Response;
-        if (steamdata.SteamId == string.Empty && state.SteamId != null)
+        if (steamdata.SteamId != 0 && state.SteamId != 0)
             steamdata.SteamId = state.SteamId;
         if (steamdata.SteamGuardScheme == string.Empty)
             steamdata.SteamGuardScheme = "2";
@@ -465,7 +465,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         var retries = 0;
         while (state.RequiresActivation == true && retries < ENROLL_ACTIVATE_RETRIES)
         {
-            var response = await Client.FinalizeAddAuthenticatorAsync(state.SteamId, state.ActivationCode, CalculateCode(false), ServerTime.ToString(), state.AccessToken);
+            var response = await Client.FinalizeAddAuthenticatorAsync(state.SteamId.ToString(), state.ActivationCode, CalculateCode(false), ServerTime.ToString(), state.AccessToken);
             var finalizeresponse = JsonSerializer.Deserialize<SteamDoLoginFinalizeJsonStruct>(response,
                 SteamJsonContext.Default.SteamDoLoginFinalizeJsonStruct);
             finalizeresponse.ThrowIsNull();
@@ -548,13 +548,12 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     public async Task<string?> AddPhoneNumberAsync(EnrollState state, string phoneNumber, string? countryCode = null)
     {
         state.AccessToken.ThrowIsNull();
-        state.SteamId.ThrowIsNull();
 
         string response;
         if (!state.RequiresEmailConfirmPhone)
         {
             if (string.IsNullOrEmpty(countryCode))
-                countryCode = await GetUserCountry(state.AccessToken, state.SteamId);
+                countryCode = await GetUserCountry(state.AccessToken, state.SteamId.ToString());
             var data = new NameValueCollection();
 
             response = await Client.AddPhoneNumberAsync(phoneNumber, countryCode, state.AccessToken);
@@ -644,7 +643,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
             IdentitySecret = response.replacement_token.identity_secret.Base64Encode(),
             RevocationCode = response.replacement_token.revocation_code,
             Uri = response.replacement_token.uri,
-            SteamId = response.replacement_token.steamid.ToString(),
+            SteamId = (long)response.replacement_token.steamid,
             SerialNumber = response.replacement_token.serial_number.ToString(),
             SharedSecret = response.replacement_token.shared_secret.Base64Encode(),
             SteamGuardScheme = response.replacement_token.steamguard_scheme.ToString(),
