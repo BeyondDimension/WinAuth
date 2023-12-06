@@ -103,6 +103,7 @@ public sealed class SteamDoLoginFinalizeResponseJsonStruct
 
 public sealed class SteamConvertSteamDataJsonStruct
 {
+    [JsonConverter(typeof(SteamDataIntConverter))]
     [JsonPropertyName("status")]
     public int Status { get; set; }
 
