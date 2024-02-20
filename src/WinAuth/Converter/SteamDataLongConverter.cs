@@ -4,7 +4,11 @@ public class SteamDataLongConverter : JsonConverter<long>
 {
     public override long Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType == JsonTokenType.String && long.TryParse(reader.GetString(), out long value))
+        if (reader.TokenType == JsonTokenType.Number)
+        {
+            return reader.GetInt64();
+        }
+        else if (reader.TokenType == JsonTokenType.String && long.TryParse(reader.GetString(), out long value))
         {
             return value;
         }
