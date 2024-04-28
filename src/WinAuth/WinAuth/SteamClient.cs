@@ -15,16 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-using BD.Common.Columns;
+
 using Newtonsoft.Json;
 using ProtoBuf;
 using ReactiveUI;
 using SteamKit2.Internal;
 using System.Collections.Specialized;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 using static BD.WTTS.Models.AuthenticatorValueDTO;
-using static WinAuth.SteamAuthenticator;
-using static WinAuth.SteamClient.Utils;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace WinAuth;
 
@@ -37,10 +35,12 @@ public partial class SteamClient : IDisposable
     /// URLs for all mobile services
     /// </summary>
     const string COMMUNITY_DOMAIN = "steamcommunity.com";
+
     const string COMMUNITY_BASE = "https://" + COMMUNITY_DOMAIN;
     const string WEBAPI_BASE = "https://api.steampowered.com";
     const string API_GETWGTOKEN = WEBAPI_BASE + "/IMobileAuthService/GetWGToken/v0001";
     const string API_LOGOFF = WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logoff/v0001";
+
     //const string API_LOGON = WEBAPI_BASE + "/ISteamWebUserPresenceOAuth/Logon/v0001";
     const string SYNC_URL = "https://api.steampowered.com/ITwoFactorService/QueryTime/v0001";
 
@@ -78,6 +78,7 @@ public partial class SteamClient : IDisposable
     internal static class Utils
     {
         #region 弃用方法
+
         //public static string SelectTokenValueNotNull(string response, JsonNode token, string path, string? msg = null, Func<string, string, Exception?, Exception>? getWinAuthException = null)
         //{
         //    var valueToken = token;
@@ -111,7 +112,7 @@ public partial class SteamClient : IDisposable
         //    throw getWinAuthException(response, msg ?? "SelectTokenNotNull", new ArgumentNullException(path));
         //}
 
-        #endregion
+        #endregion 弃用方法
 
         public static WinAuthException GetWinAuthException(string response, string msg, Exception? innerException = null)
         {
@@ -218,7 +219,8 @@ public partial class SteamClient : IDisposable
 
         //    return poller.Duration != 0 ? poller : null;
         //}
-        #endregion
+
+        #endregion 弃用方法
     }
 
     /// <summary>
@@ -439,10 +441,12 @@ public partial class SteamClient : IDisposable
     /// Login state fields
     /// </summary>
     public bool InvalidLogin;
+
     //public bool RequiresCaptcha;
     //public string? CaptchaId;
     //public string? CaptchaUrl;
     public bool Requires2FA;
+
     public bool RequiresEmailAuth;
     public string? EmailDomain;
     public string? Error;
@@ -784,7 +788,7 @@ public partial class SteamClient : IDisposable
         {
             // https://steamcommunity.com/mobileconf/multiajaxop?a=SteamID&tag=list&m=react&t=servertime&p=EncodeURL(deviceID)&k=EncodeURL(timehash)&op={accept ? "allow" : "cancel"}
             // post 请求
-            // data 为 NameValueCollection 
+            // data 为 NameValueCollection
             // 现在可单条请求处理多个交易 循环以下代码添加批量的 cid 和 ck 即可
             // data.Add("cid[]", id);
             // data.Add("ck[]", key);
@@ -906,6 +910,17 @@ public partial class SteamClient : IDisposable
         data.Add("phone_country_code", contury_code);
         return await RequestAsync<string>(
                     WEBAPI_BASE + $"/IPhoneService/SetAccountPhoneNumber/v1?access_token={access_token}", "POST",
+                    data);
+    }
+
+    public async Task<string> VerifyPhoneNumberAsync(string phone_number, string? sms_code, string access_token)
+    {
+        var data = new NameValueCollection
+        {
+            { "code", sms_code }
+        };
+        return await RequestAsync<string>(
+                    WEBAPI_BASE + $"/IPhoneService/VerifyAccountPhoneWithCode/v1?access_token={access_token}", "POST",
                     data);
     }
 
@@ -1051,7 +1066,8 @@ public partial class SteamClient : IDisposable
     //         return false;
     //     }
     // }
-    #endregion
+
+    #endregion Public
 
     #region Web Request
 
@@ -1278,7 +1294,7 @@ public partial class SteamClient : IDisposable
         //}
     }
 
-    #endregion
+    #endregion Web Request
 
     #region ToolMethod
 
@@ -1393,7 +1409,7 @@ public partial class SteamClient : IDisposable
     //    return StringToByteArray(SelectTokenValueStr(obj, path));
     //}
 
-    #endregion
+    #endregion ToolMethod
 
     #region GeneratedRegex
 
@@ -1432,6 +1448,7 @@ public partial class SteamClient : IDisposable
 
     [GeneratedRegex("<div class=\"tradeoffer_items primary\">.*?<img src=\"(.*?)\"", RegexOptions.Singleline)]
     private static partial Regex GetSelfIconUrlFromConfirmationDetailsRegex();
-    #endregion
+
+    #endregion GeneratedRegex
 
 }

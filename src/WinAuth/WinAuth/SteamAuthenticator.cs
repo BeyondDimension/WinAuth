@@ -16,13 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-using BD.WTTS.Models;
-using Converter;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
 using System.Collections.Specialized;
-using System.Net.Http.Client;
 using static WinAuth.SteamClient.Utils;
 using Exception = System.Exception;
 
@@ -240,7 +237,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 #endif
     public SteamClient Client { get; private set; }
 
-    #endregion
+    #endregion Authenticator data
 
     /// <summary>
     /// Expanding offsets to retry when creating first code
@@ -417,6 +414,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
                 state.Error = Strings.Error_AccountNotBindTel;
                 state.NoPhoneNumber = true;
                 return false;
+
             case 29:
                 state.Error = Strings.Error_HasAuthenticator;
                 return false;
@@ -521,7 +519,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         // data.Clear();
         // data.Add("access_token", state.AccessToken);
         // data.Add("steamid", state.SteamId);
-        // data.Add("email_type", "2"); 
+        // data.Add("email_type", "2");
         //
         // _ = await RequestAsync(WEBAPI_BASE + "/ITwoFactorService/SendEmail/v0001", "POST", data);
 
@@ -530,7 +528,6 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
     public async Task<string?> GetUserCountry(string accessToken, string steamId)
     {
-
         var response = await Client.GetUserCountry(accessToken, steamId);
         var jsonObj = JsonSerializer.Deserialize(response, SteamPhoneNumberJsonContext.Default.GetUserCountryResponse);
         return jsonObj?.Response?.Country;
@@ -586,6 +583,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         }
 
         return Strings.ConfirmLinkInEmail;
+    }
+
+    public async Task<bool> VerifyPhoneNumberAsync(string phone_number, string sms_code, string access_token)
+    {
+        var response = await Client.VerifyPhoneNumberAsync(phone_number, sms_code, access_token);
+
+        return response != null;
     }
 
     /// <summary>
