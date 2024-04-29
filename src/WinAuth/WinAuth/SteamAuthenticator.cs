@@ -446,7 +446,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
         state.RequiresActivation = true;
 
-        state.Error = Strings.RequiresActivation;
+        // state.Error = Strings.RequiresActivation;
         return true;
     }
 
