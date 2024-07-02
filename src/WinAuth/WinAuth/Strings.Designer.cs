@@ -115,7 +115,7 @@ namespace WinAuth {
         }
         
         /// <summary>
-        ///   查找类似 您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入 的本地化字符串。
+        ///   查找类似 您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入，注意这可能导致 7-15 天的交易冷却期。 的本地化字符串。
         /// </summary>
         internal static string Error_HasAuthenticator {
             get {

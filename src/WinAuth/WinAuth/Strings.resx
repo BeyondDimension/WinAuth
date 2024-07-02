@@ -151,7 +151,7 @@
     <value>请查看账号绑定手机号信息，输入验证码后继续。</value>
   </data>
   <data name="Error_HasAuthenticator" xml:space="preserve">
-    <value>您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入</value>
+    <value>您的帐户似乎已添加了身份验证器，需要移除现有的身份验证器才可以通过账号导入，注意这可能导致 7-15 天的交易冷却期。</value>
   </data>
   <data name="AccountNotBindEmail" xml:space="preserve">
     <value>账号没有绑定邮箱</value>
