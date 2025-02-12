@@ -434,7 +434,6 @@ public partial class SteamClient : IDisposable
             [JsonProperty("access_token")]
             public string? AccessToken { get; set; }
         }
-
     }
 
     /// <summary>
@@ -792,7 +791,13 @@ public partial class SteamClient : IDisposable
             // 现在可单条请求处理多个交易 循环以下代码添加批量的 cid 和 ck 即可
             // data.Add("cid[]", id);
             // data.Add("ck[]", key);
-            string response = await RequestAsync<string>(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data);
+
+            NameValueCollection initHeaders = new()
+            {
+                { "Origin", COMMUNITY_BASE },
+            };
+
+            string response = await RequestAsync<string>(COMMUNITY_BASE + "/mobileconf/multiajaxop", "POST", data, headers: initHeaders);
 
             if (string.IsNullOrEmpty(response) == true)
             {
@@ -1450,5 +1455,4 @@ public partial class SteamClient : IDisposable
     private static partial Regex GetSelfIconUrlFromConfirmationDetailsRegex();
 
     #endregion GeneratedRegex
-
 }
