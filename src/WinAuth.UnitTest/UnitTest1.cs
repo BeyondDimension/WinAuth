@@ -10,7 +10,9 @@ namespace WinAuth.UnitTest;
 
 public class Tests
 {
+#pragma warning disable NUnit1032 // An IDisposable field/property should be Disposed in a TearDown method
     IServiceProvider service;
+#pragma warning restore NUnit1032 // An IDisposable field/property should be Disposed in a TearDown method
 
     //IRandomGetUserAgentService RandomUserAgentService => service.GetRequiredService<IRandomGetUserAgentService>();
 

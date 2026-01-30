@@ -1,6 +1,6 @@
 <Project>
 	<PropertyGroup>
-		<DotNet_Version>8.0</DotNet_Version>
+		<DotNet_Version>10.0</DotNet_Version>
 		<NoWarn>$(NoWarn);NU1507;1591;SA1612</NoWarn>
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
@@ -9,7 +9,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<IsTrimmable>true</IsTrimmable>
 		<!--<Version>3.6yy.2MMdd.2hhmm</Version>-->
-		<Version>3.623.20626.21818</Version>
+		<Version>3.626.20130.20000</Version>
 		<PackageIconUrl>https://avatars.githubusercontent.com/u/79355691?s=200&amp;v=4</PackageIconUrl>
 		<Company>长沙次元超越科技有限公司</Company>
 		<Copyright>©️ $(Company). All rights reserved.</Copyright>
