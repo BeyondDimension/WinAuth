@@ -1,6 +1,8 @@
 <Project>
 	<PropertyGroup>
 		<DotNet_Version>10.0</DotNet_Version>
+		<DotNet_Version_LTS>10.0</DotNet_Version_LTS>
+		<DotNet_Version_STS>11.0</DotNet_Version_STS>
 		<NoWarn>$(NoWarn);NU1507;1591;SA1612</NoWarn>
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
@@ -18,6 +20,12 @@
 		<AssemblyVersion>$(Version)</AssemblyVersion>
 		<NeutralLanguage>zh-Hans</NeutralLanguage>
 	</PropertyGroup>
+
+	<!-- 👇 .NET 11+ 配置 -->
+	<PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">
+		<Features>$(Features);runtime-async=on</Features>
+	</PropertyGroup>
+	
 	<ItemGroup>
 		<Compile Include="..\AssemblyInfo.cs">
 			<LinkBase>Properties</LinkBase>

@@ -1,6 +1,6 @@
 <Project>
 	<PropertyGroup>
-		<TargetFrameworks>net$(DotNet_Version)</TargetFrameworks>
+		<TargetFrameworks>net$(DotNet_Version_LTS);net$(DotNet_Version_STS)</TargetFrameworks>
 	</PropertyGroup>
 
 	<ItemGroup>
