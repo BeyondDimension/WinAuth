@@ -122,13 +122,13 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
 
     /// <summary>
     /// JSON session data
+    /// Persisted session only; an in-memory login does not opt in to remembering credentials.
     /// </summary>
     public string? SessionData { get; set; }
 
     protected override bool ExplicitHasValue()
     {
-        return base.ExplicitHasValue() && Serial != null && DeviceId != null && SteamData != null &&
-               SessionData != null;
+        return base.ExplicitHasValue() && Serial != null && DeviceId != null && SteamData != null;
     }
 
     /// <summary>
@@ -252,9 +252,6 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     {
         get
         {
-            if (Client != null && Client.Session != null)
-                SessionData = Client.Session.ToString();
-
             //if (Logger != null)
             //{
             //	Logger.Debug("Get Steam data: {0}, Session:{1}", (SteamData ?? string.Empty).Replace("\n"," ").Replace("\r",""), (SessionData ?? string.Empty).Replace("\n", " ").Replace("\r", ""));
@@ -309,15 +306,29 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     }
 
     /// <summary>
-    /// Get (or create) the current Steam client for this Authenticator
+    /// Get (or create) the shared Steam client, preserving an installed in-memory session.
+    /// Persisted SessionData is loaded only when there is no authenticated current session.
+    /// Install session replacements explicitly with SteamClient.SessionSet.
     /// </summary>
     /// <returns>current or new SteamClient</returns>
     public SteamClient GetClient(string? language = null)
     {
         lock (this)
         {
-            Client ??= new SteamClient(this);
-            Client.SessionSet(SessionData, language);
+            if (Client == null || Client.IsDisposed)
+            {
+                var currentSession = Client?.IsLoggedIn() == true ? Client.Session : null;
+                Client = new SteamClient(this);
+                Client.SessionSet(currentSession?.ToString() ?? SessionData, language ?? currentSession?.Language);
+            }
+            else if (Client.Session == null || (!Client.IsLoggedIn() && !string.IsNullOrEmpty(SessionData)))
+            {
+                Client.SessionSet(SessionData, language ?? Client.Session?.Language);
+            }
+            else if (language != null && language != Client.Session.Language)
+            {
+                Client.SessionSet(Client.Session.ToString(), language);
+            }
             return Client;
         }
     }

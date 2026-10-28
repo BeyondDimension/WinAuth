@@ -379,7 +379,7 @@ public partial class SteamClient : IDisposable
 
         public CookieContainer GetCookies()
         {
-            if (this.SessionID == null)
+            if (string.IsNullOrEmpty(this.SessionID))
                 this.SessionID = GenerateSessionID();
 
             var cookies = new CookieContainer();
@@ -451,9 +451,9 @@ public partial class SteamClient : IDisposable
     public string? Error;
 
     /// <summary>
-    /// Current session
+    /// Current session. Install replacements with <see cref="SessionSet"/> so request cookies are updated too.
     /// </summary>
-    public SteamSession? Session;
+    public SteamSession? Session { get; private set; }
 
     /// <summary>
     /// Current authenticator
@@ -483,6 +483,8 @@ public partial class SteamClient : IDisposable
     public int ConfirmationPollerRetries = DEFAULT_CONFIRMATIONPOLLER_RETRIES;
 
     HttpClient? _httpClient;
+
+    internal bool IsDisposed { get; private set; }
 
     /// <summary>
     /// Delegate for Confirmation event
@@ -520,15 +522,6 @@ public partial class SteamClient : IDisposable
     }
 
     /// <summary>
-    /// Finalizer
-    /// </summary>
-    ~SteamClient()
-    {
-        _httpClient?.Dispose();
-        Dispose(false);
-    }
-
-    /// <summary>
     /// Dispose the object
     /// </summary>
     public void Dispose()
@@ -543,15 +536,15 @@ public partial class SteamClient : IDisposable
     /// <param name="disposing"></param>
     protected virtual void Dispose(bool disposing)
     {
+        if (IsDisposed)
+            return;
+
+        IsDisposed = true;
         if (disposing)
         {
-            // clear resources
-        }
-
-        if (_pollerCancellation != null)
-        {
-            _pollerCancellation.Cancel();
-            _pollerCancellation = null;
+            PollConfirmationsStop();
+            _httpClient?.Dispose();
+            _httpClient = null;
         }
     }
 
@@ -569,40 +562,43 @@ public partial class SteamClient : IDisposable
         Error = null;
 
         Session = null;
+        ConfirmationsQuery = null;
+        _httpClient?.Dispose();
+        _httpClient = null;
     }
 
     /// <summary>
-    /// Session Set
+    /// Install a session and its cookies, disposing the previous request transport.
+    /// This does not change the authenticator's persisted SessionData.
     /// </summary>
-    /// <param name="session"></param>
+    /// <param name="session">Serialized session, or null to start an unauthenticated session.</param>
+    /// <param name="language">Steam language for this session's cookies.</param>
     public void SessionSet(string? session = null, string? language = null)
     {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(SteamClient));
+
+        var currentSession = string.IsNullOrEmpty(session) ? new SteamSession() : new SteamSession(session);
+        currentSession.Language = language;
         HttpHandlerType handler = new HttpHandlerType()
         {
             AllowAutoRedirect = true,
             AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
             MaxAutomaticRedirections = 1000,
+            UseCookies = true,
+            CookieContainer = string.IsNullOrEmpty(session) ? new CookieContainer() : currentSession.GetCookies(),
         };
 
-        if (!string.IsNullOrEmpty(session))
-        {
-            Session = new SteamSession(session)
-            {
-                Language = language
-            };
-            handler.UseCookies = true;
-            handler.CookieContainer = Session.GetCookies();
-        }
-        else
-            Session = new SteamSession();
+        var httpClient = new HttpClient(handler);
+        httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
+        httpClient.Timeout = new TimeSpan(0, 0, 45);
+        httpClient.DefaultRequestHeaders.ExpectContinue = false;
 
-        _httpClient = new HttpClient(handler);
-        //_httpClient.DefaultRequestHeaders.Add("Accept", "text/javascript, text/html, application/xml, text/xml, */*");
-        //_httpClient.DefaultRequestHeaders.Add("Referer", COMMUNITY_BASE);
-        //_httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-us; Google Nexus 4 - 4.1.1 - API 16 - 768x1280 Build/JRO03S) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30");
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", USERAGENT);
-        _httpClient.Timeout = new TimeSpan(0, 0, 45);
-        _httpClient.DefaultRequestHeaders.ExpectContinue = false;
+        var previousClient = _httpClient;
+        Session = currentSession;
+        _httpClient = httpClient;
+        ConfirmationsQuery = null;
+        previousClient?.Dispose();
     }
 
     /// <summary>
@@ -678,6 +674,9 @@ public partial class SteamClient : IDisposable
         {
             throw new WinAuthUnauthorisedSteamRequestException();
         }
+
+        if (!jsonObject.Success)
+            throw new WinAuthInvalidSteamRequestException("Steam could not retrieve confirmations.");
 
         if (jsonObject.Conf == null)
             return null;
@@ -1126,7 +1125,9 @@ public partial class SteamClient : IDisposable
         if (string.Compare(method, "GET", true) == 0)
             url += (!url.Contains('?', StringComparison.CurrentCulture) ? '?' : '&') + query;
 
-        var httpClient = _httpClient;
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(SteamClient));
+        var httpClient = _httpClient ?? throw new InvalidOperationException("A Steam session must be installed before making requests.");
 
         if (headers != null)
         {
