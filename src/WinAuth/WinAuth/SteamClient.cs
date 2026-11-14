@@ -288,7 +288,7 @@ public partial class SteamClient : IDisposable
 
             try
             {
-                var session = System.Text.Json.JsonSerializer.Deserialize<SteamSession>(json);
+                var session = System.Text.Json.JsonSerializer.Deserialize(json, SteamJsonContext.Default.SteamSession);
                 if (session == null)
                     throw new ArgumentNullException(nameof(session));
 
@@ -339,7 +339,7 @@ public partial class SteamClient : IDisposable
                 throw new Exception("Failed to refresh token: " + ex.Message);
             }
 
-            var response = JsonConvert.DeserializeObject<GenerateAccessTokenForAppResponse>(responseStr);
+            var response = JsonSerializer.Deserialize(responseStr, SteamSessionTokenJsonContext.Default.GenerateAccessTokenForAppResponse);
             this.AccessToken = response.Response.AccessToken;
         }
 
@@ -371,7 +371,7 @@ public partial class SteamClient : IDisposable
             }
 
             var payloadBytes = Convert.FromBase64String(base64);
-            var jwt = JsonConvert.DeserializeObject<SteamAccessToken>(System.Text.Encoding.UTF8.GetString(payloadBytes));
+            var jwt = JsonSerializer.Deserialize(payloadBytes, SteamSessionTokenJsonContext.Default.SteamAccessToken);
 
             // Compare expire time of the token to the current time
             return DateTimeOffset.UtcNow.ToUnixTimeSeconds() > jwt.Exp;
@@ -414,24 +414,24 @@ public partial class SteamClient : IDisposable
 
         public override string ToString()
         {
-            return JsonSerializer.Serialize(this);
+            return JsonSerializer.Serialize(this, SteamJsonContext.Default.SteamSession);
         }
 
-        private class SteamAccessToken
+        internal class SteamAccessToken
         {
-            [JsonProperty("exp")]
+            [JsonPropertyName("exp")]
             public long Exp { get; set; }
         }
 
-        private class GenerateAccessTokenForAppResponse
+        internal class GenerateAccessTokenForAppResponse
         {
-            [JsonProperty("response")]
-            public GenerateAccessTokenForAppResponseResponse? Response;
+            [JsonPropertyName("response")]
+            public GenerateAccessTokenForAppResponseResponse? Response { get; set; }
         }
 
-        private class GenerateAccessTokenForAppResponseResponse
+        internal class GenerateAccessTokenForAppResponseResponse
         {
-            [JsonProperty("access_token")]
+            [JsonPropertyName("access_token")]
             public string? AccessToken { get; set; }
         }
     }
@@ -1085,7 +1085,16 @@ public partial class SteamClient : IDisposable
     /// <param name="headers"></param>
     /// <param name="timeout"></param>
     /// <returns>response body</returns>
-    async Task<T> RequestAsync<T>(string url, string method, NameValueCollection? data = null,
+    // protobuf-net 3.4 reads these attribute getters through AttributeMap; the nested token
+    // is discovered from the response property rather than a generic serializer argument.
+    // Nested messages also require protobuf-net's reflection-created generic adapters.
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, typeof(ProtoContractAttribute))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, typeof(ProtoMemberAttribute))]
+    [DynamicDependency("get_Value", typeof(System.ComponentModel.DefaultValueAttribute))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(CRemoveAuthenticatorViaChallengeContinue_Replacement_Token))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods, "ProtoBuf.Internal.DynamicStub.ConcreteStub`1", "protobuf-net.Core")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods, "ProtoBuf.Internal.Serializers.SubValueSerializer`1", "protobuf-net")]
+    async Task<T> RequestAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(string url, string method, NameValueCollection? data = null,
         CookieContainer? cookies = null, NameValueCollection? headers = null, int timeout = 0, bool isProtobuf = false)
     {
         // create form-encoded data for query or body
@@ -1304,7 +1313,11 @@ public partial class SteamClient : IDisposable
 
     #region ToolMethod
 
-    static string ConvertBase64String<T>(T obj)
+    // Preserve the attribute getters used by protobuf-net's reflection serializer under AOT.
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, typeof(ProtoContractAttribute))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties, typeof(ProtoMemberAttribute))]
+    [DynamicDependency("get_Value", typeof(System.ComponentModel.DefaultValueAttribute))]
+    static string ConvertBase64String<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T obj)
     {
         using var stream = new MemoryStream();
         Serializer.Serialize(stream, obj);

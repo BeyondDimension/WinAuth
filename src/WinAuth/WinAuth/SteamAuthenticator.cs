@@ -911,8 +911,7 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
         try
         {
             var response = await Client.TwoFAQueryTime();
-            var options = new JsonSerializerOptions { TypeInfoResolver = SteamJsonContext.Default };
-            var json = JsonSerializer.Deserialize<SteamSyncStruct>(response, options);
+            var json = JsonSerializer.Deserialize(response, SteamJsonContext.Default.SteamSyncStruct);
             json.ThrowIsNull();
             json.Response.ThrowIsNull();
 

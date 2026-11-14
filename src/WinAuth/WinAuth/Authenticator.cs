@@ -347,11 +347,17 @@ partial class AuthenticatorValueDTO
             authenticatorType = authenticatorType.Replace(
                 "WindowsAuthenticator.",
                 typeof(AuthenticatorValueDTO).FullName + ".");
-            var authenticatorType_ = Assembly.GetExecutingAssembly().GetType(authenticatorType, false, true);
-            authenticatorType_ = authenticatorType_.ThrowIsNull();
-#pragma warning disable IL2072 // Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.
-            authenticator = (AuthenticatorValueDTO?)Activator.CreateInstance(authenticatorType_);
-#pragma warning restore IL2072 // Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.
+            authenticator = authenticatorType switch
+            {
+                var name when string.Equals(name, typeof(AuthenticatorValueDTO).FullName, StringComparison.OrdinalIgnoreCase) => new AuthenticatorValueDTO(),
+                var name when string.Equals(name, typeof(BattleNetAuthenticator).FullName, StringComparison.OrdinalIgnoreCase) => new BattleNetAuthenticator(),
+                var name when string.Equals(name, typeof(GoogleAuthenticator).FullName, StringComparison.OrdinalIgnoreCase) => new GoogleAuthenticator(),
+                var name when string.Equals(name, typeof(HOTPAuthenticator).FullName, StringComparison.OrdinalIgnoreCase) => new HOTPAuthenticator(),
+                var name when string.Equals(name, typeof(MicrosoftAuthenticator).FullName, StringComparison.OrdinalIgnoreCase) => new MicrosoftAuthenticator(),
+                var name when string.Equals(name, typeof(SteamAuthenticator).FullName, StringComparison.OrdinalIgnoreCase) => new SteamAuthenticator(),
+                var name when string.Equals(name, typeof(TOTPAuthenticator).FullName, StringComparison.OrdinalIgnoreCase) => new TOTPAuthenticator(),
+                _ => throw new InvalidOperationException($"Unknown authenticator type: {authenticatorType}"),
+            };
         }
         if (authenticator == null)
         {

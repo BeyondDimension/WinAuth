@@ -128,6 +128,12 @@ All trademarks are recognised, including but not limited to:
 
 ----
 
+## Native AOT integration
+
+Steam saved sessions, refresh-token responses and token expiry payloads use generated JSON metadata. Legacy XML import constructs the supported authenticator types explicitly instead of resolving type names through assembly reflection.
+
+SteamKit2 3.5.0 uses protobuf-net 3.4.30 for the authenticator transfer challenge. Its runtime serializer reads `ProtoContractAttribute` and `ProtoMemberAttribute` properties (including non-public presence flags) and `DefaultValueAttribute.Value` through reflection. The request/response entry points preserve these attribute shapes, the replacement-token message graph, and the constructors/methods of protobuf-net's `DynamicStub.ConcreteStub<T>` and `SubValueSerializer<T>` adapters used to discover nested messages. No entire SteamKit assembly is rooted. The native offline probe verifies both challenge operations, every replacement-token field, fixed64 encoding, default-field presence and unknown-field round trips. New protobuf message families require their own native wire-format validation; this does not establish AOT support for every SteamKit service.
+
 ## Author
 
 WinAuth was written by Colin Mackie. Copyright (C) 2010-2017.
