@@ -21,3 +21,9 @@ namespace BD.WTTS.Models;
 public partial class SteamJsonContext : JsonSerializerContext
 {
 }
+
+[JsonSerializable(typeof(SteamClient.SteamSession.SteamAccessToken))]
+[JsonSerializable(typeof(SteamClient.SteamSession.GenerateAccessTokenForAppResponse))]
+internal partial class SteamSessionTokenJsonContext : JsonSerializerContext
+{
+}
