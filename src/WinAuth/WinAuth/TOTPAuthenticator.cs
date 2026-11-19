@@ -1,5 +1,6 @@
 namespace WinAuth;
 
+[MPObj(keyAsPropertyName: true)]
 public class TOTPAuthenticator : GoogleAuthenticator
 {
     /// <summary>

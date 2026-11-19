@@ -158,7 +158,8 @@ public sealed partial class SteamAuthenticator : AuthenticatorValueDTO
     /// <summary>
     /// Enrolling state
     /// </summary>
-    [MPObj(keyAsPropertyName: true)]
+    // Enrollment state is transient and is not part of the vault's persisted token types.
+    [MPObj(keyAsPropertyName: true, SuppressSourceGeneration = true)]
     public sealed class EnrollState
     {
         public string? Language { get; set; }

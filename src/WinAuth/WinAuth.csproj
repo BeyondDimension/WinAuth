@@ -45,6 +45,7 @@
 		<PackageReference Include="BD.Common" />
 		<PackageReference Include="BD.Common.Primitives" />
 		<PackageReference Include="BD.Common.Security" />
+		<PackageReference Include="MessagePack" />
 		<PackageReference Include="Portable.BouncyCastle" />
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
 		<PackageReference Include="ReactiveUI" />
