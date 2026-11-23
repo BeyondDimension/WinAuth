@@ -18,7 +18,7 @@
 
 using Newtonsoft.Json;
 using ProtoBuf;
-using ReactiveUI;
+using ReactiveUI.Reactive;
 using SteamKit2.Internal;
 using System.Collections.Specialized;
 using static BD.WTTS.Models.AuthenticatorValueDTO;

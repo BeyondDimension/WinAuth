@@ -48,8 +48,7 @@
 		<PackageReference Include="MessagePack" />
 		<PackageReference Include="Portable.BouncyCastle" />
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
-		<PackageReference Include="ReactiveUI" />
-		<PackageReference Include="ReactiveUI.Fody" />
+		<PackageReference Include="ReactiveUI.Reactive" />
 		<PackageReference Include="SteamKit2" />
 	</ItemGroup>
 	
